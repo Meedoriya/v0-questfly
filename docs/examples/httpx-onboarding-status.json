@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "data": {
+    "campaign_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "status": "active",
+    "goal_text": "Похудеть на 5 кг",
+    "total_quests": 4,
+    "quests": [
+      {
+        "quest_number": 1,
+        "title": "Первая веха",
+        "description": "Краткое описание",
+        "status": "active",
+        "has_tasks": true
+      },
+      {
+        "quest_number": 2,
+        "title": "Вторая веха",
+        "description": "Пока обзор",
+        "status": "pending",
+        "has_tasks": false
+      }
+    ]
+  }
+}

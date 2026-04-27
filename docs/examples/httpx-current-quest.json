@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "data": {
+    "quest": {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "campaign_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "quest_number": 2,
+      "title": "Интервалы",
+      "description": "Чередуйте бег и шаг",
+      "status": "active",
+      "has_tasks": true,
+      "completion_rate": 0
+    },
+    "tasks": [
+      {
+        "id": "11111111-2222-3333-4444-555555555555",
+        "title": "Разминка 10 мин",
+        "description": "Лёгкий темп",
+        "xp_reward": 15,
+        "sort_order": 1,
+        "completed": false,
+        "estimated_minutes": 10,
+        "subtasks": [
+          {
+            "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "title": "5 мин пешком",
+            "estimated_minutes": 5,
+            "completed": false,
+            "sort_order": 1
+          }
+        ]
+      }
+    ]
+  }
+}

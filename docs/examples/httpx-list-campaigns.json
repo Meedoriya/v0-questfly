@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "data": {
+    "campaigns": [
+      {
+        "campaign_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "goal_text": "Освоить бег 5 км",
+        "status": "active",
+        "current_quest": 2,
+        "total_quests": 5,
+        "overall_progress": 0.35
+      }
+    ]
+  }
+}

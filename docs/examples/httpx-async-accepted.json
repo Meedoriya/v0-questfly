@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "data": {
+    "status": "generating",
+    "campaign_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "message": "Next quest generation started. Poll GET /api/v1/campaigns/3fa85f64-5717-4562-b3fc-2c963f66afa6/current-quest for progress."
+  }
+}

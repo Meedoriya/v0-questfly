@@ -1,0 +1,1998 @@
+openapi: 3.0.3
+info:
+  title: Questfly Platform API
+  description: |
+    HTTP API как в `internal/system/router/router.go`.
+
+    Политика (токены, async, пагинация, logout): смотрите `docs/api-policy.md` в репозитории.
+
+    **Формат ответов:** большинство маршрутов отдают JSON через `httpx`:
+    - успех: `{ "success": true, "data": <payload> }` (и HTTP-код 200/201/202);
+    - ошибка: `{ "success": false, "error": { "code": "<string>", "message": "<string>" } }`.
+
+    **Исключения (без обёртки `success`/`data`):**
+    - `GET /health` — плоский JSON;
+    - `GET /api/v1/ping` — плоский JSON;
+    - `DELETE /api/v1/routines/{routine_id}` — `204` без тела.
+
+    **Коды `error.code`** (см. `internal/common/httpx/response.go` и доменные ошибки):
+    - `BAD_REQUEST` — 400, в т.ч. невалидный JSON/параметры
+    - `UNAUTHORIZED` — 401
+    - `NOT_FOUND` — 404
+    - `FORBIDDEN` — 403
+    - `ALREADY_EXISTS` / `CONFLICT` — 409
+    - `INVALID_INPUT` — 400 (домен)
+    - `FEEDBACK_REQUIRED` — 409 (перед `next-quest` без фидбека)
+    - `INTERNAL_ERROR` — 500
+
+    Типовые **HTTP-статусы** привязаны к коду; точное сочетание «маршрут → code» смотрите в описаниях операций.
+  version: 0.1.0
+
+servers:
+  - url: /
+    description: Корень (укажите host своего окружения)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: health
+    description: Liveness / БД
+  - name: system
+    description: Сервисные эндпоинты
+  - name: auth
+    description: OTP, JWT, текущий пользователь
+  - name: onboarding
+    description: Старт кампании, чат, генерация роадмапа
+  - name: campaigns
+    description: Кампании, роадмап, текущий квест
+  - name: tasks
+    description: Задачи (task id)
+  - name: subtasks
+    description: Подзадачи (subtask id)
+  - name: quests
+    description: Квесты сюжетные и ручной alias
+  - name: routines
+    description: Рутины / manual quest
+  - name: users
+    description: Персонаж, уровни
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      summary: Проверка БД
+      security: []
+      responses:
+        "200":
+          description: Сервис и БД в порядке
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthOK"
+        "503":
+          description: БД недоступна
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthError"
+
+  /api/v1/ping:
+    get:
+      operationId: getPing
+      tags: [system]
+      summary: Версия API (простой ping)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
+
+  /api/v1/auth/send-otp:
+    post:
+      operationId: postAuthSendOtp
+      tags: [auth]
+      summary: Отправить OTP на email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendOTPRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_OTPSentResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/auth/register:
+    post:
+      operationId: postAuthRegister
+      tags: [auth]
+      summary: Регистрация по OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_AuthResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/auth/login:
+    post:
+      operationId: postAuthLogin
+      tags: [auth]
+      summary: Вход по OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_AuthResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/auth/refresh:
+    post:
+      operationId: postAuthRefreshToken
+      tags: [auth]
+      summary: Обновить access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_TokenData"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Текущий пользователь
+      description: |
+        В `token` в ответе в коде сейчас передаётся пустой объект — поля с пустыми строками; уточнение в `api-policy` (фаза 4).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_AuthResponse"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/onboarding/start:
+    post:
+      operationId: postOnboardingStart
+      tags: [onboarding]
+      summary: Начать онбординг (цель)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartOnboardingRequest"
+      responses:
+        "201":
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_StartOnboardingResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/onboarding/{campaign_id}/message:
+    post:
+      operationId: postOnboardingMessage
+      tags: [onboarding]
+      summary: Сообщение в чате онбординга
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_ChatResponseDTO"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/onboarding/{campaign_id}/generate:
+    post:
+      operationId: postOnboardingGenerate
+      tags: [onboarding]
+      summary: Запустить асинхронную генерацию роадмапа
+      description: Тело запроса не используется; допустим пустой body.
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      responses:
+        "202":
+          description: Принято к исполнению
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_AsyncResponse"
+              examples:
+                sample:
+                  $ref: "#/components/examples/exAsync202"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/onboarding/{campaign_id}/conversation:
+    get:
+      operationId: getOnboardingConversation
+      tags: [onboarding]
+      summary: Вся беседа
+      description: |
+        Поле `status` — статус диалога (`active` или `completed`), не путать с эндпоинтом `.../status` (там статус кампании).
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_ConversationResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/onboarding/{campaign_id}/status:
+    get:
+      operationId: getOnboardingCampaignStatus
+      tags: [onboarding]
+      summary: Статус кампании и квестов
+      description: |
+        Поле `status` — **кампания** (`draft` | `active` | `completed` | `archived`).
+        В `quests[].status` — статусы **квестов** (`pending` | `active` | `completed`).
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_CampaignStatusResponse"
+              examples:
+                sample:
+                  $ref: "#/components/examples/exOnboardingStatus"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/campaigns:
+    get:
+      operationId: getCampaigns
+      tags: [campaigns]
+      summary: Список кампаний текущего пользователя
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_ListCampaignsResponse"
+              examples:
+                sample:
+                  $ref: "#/components/examples/exListCampaigns"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/campaigns/{campaign_id}:
+    get:
+      operationId: getCampaignById
+      tags: [campaigns]
+      summary: Детали кампании
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_GetCampaignResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/campaigns/{campaign_id}/roadmap:
+    get:
+      operationId: getCampaignRoadmap
+      tags: [campaigns]
+      summary: Роадмап (все вехи)
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_RoadmapResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/campaigns/{campaign_id}/current-quest:
+    get:
+      operationId: getCampaignCurrentQuest
+      tags: [campaigns]
+      summary: Текущий квест с задачами
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_GetCurrentQuestResponse"
+              examples:
+                sample:
+                  $ref: "#/components/examples/exCurrentQuest"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/campaigns/{campaign_id}/next-quest:
+    post:
+      operationId: postCampaignNextQuest
+      tags: [campaigns]
+      summary: Асинхронная генерация следующей вехи
+      parameters:
+        - $ref: "#/components/parameters/campaign_id"
+      responses:
+        "202":
+          description: Принято
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_AsyncResponse"
+              examples:
+                sample:
+                  $ref: "#/components/examples/exAsync202"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          description: В т.ч. `FEEDBACK_REQUIRED`, если нет фидбека у завершённого квеста
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxErrorBody"
+              examples:
+                feedbackRequired:
+                  $ref: "#/components/examples/exErrorFeedbackRequired"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/tasks/{task_id}:
+    get:
+      operationId: getTaskById
+      tags: [tasks]
+      summary: Деталь задачи (id — **task**, не subtask)
+      parameters:
+        - $ref: "#/components/parameters/task_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_TaskDetailResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/subtasks/{subtask_id}/complete:
+    post:
+      operationId: postSubtaskComplete
+      tags: [subtasks]
+      summary: Завершить подзадачу (id — **subtask**)
+      parameters:
+        - $ref: "#/components/parameters/subtask_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_CompleteSubtaskResponse"
+              examples:
+                sample:
+                  $ref: "#/components/examples/exSubtaskComplete"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/subtasks/{subtask_id}/uncomplete:
+    post:
+      operationId: postSubtaskUncomplete
+      tags: [subtasks]
+      summary: Снять отметку с подзадачи
+      parameters:
+        - $ref: "#/components/parameters/subtask_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_UncompleteSubtaskResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/quests/{quest_id}/complete:
+    post:
+      operationId: postQuestComplete
+      tags: [quests]
+      summary: Завершить квест
+      description: |
+        Все таски квеста должны быть completed; иначе конфликт.
+        id в пути — **quest** id.
+      parameters:
+        - $ref: "#/components/parameters/quest_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_CompleteQuestResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/quests/{quest_id}/feedback:
+    post:
+      operationId: postQuestFeedback
+      tags: [quests]
+      summary: Фидбек по завершённому квесту
+      description: "sentiment: `good` | `ok` | `bad` (см. домен)."
+      parameters:
+        - $ref: "#/components/parameters/quest_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitFeedbackRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_SubmitFeedbackResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "409":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/quests/manual:
+    post:
+      operationId: postQuestManual
+      tags: [quests, routines]
+      summary: Создать рутину (alias POST /routines)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoutineRequest"
+      responses:
+        "201":
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_RoutineData"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/routines:
+    post:
+      operationId: postRoutine
+      tags: [routines]
+      summary: Создать рутину
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoutineRequest"
+      responses:
+        "201":
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_RoutineData"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+    get:
+      operationId: getRoutines
+      tags: [routines]
+      summary: Список рутин
+      parameters:
+        - name: include_inactive
+          in: query
+          description: "если `true` — включая неактивные"
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_ListRoutinesResponse"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/routines/daily:
+    get:
+      operationId: getRoutinesDaily
+      tags: [routines]
+      summary: Рутины на дату
+      parameters:
+        - name: date
+          in: query
+          description: Дата `YYYY-MM-DD`; если не задана — сегодня (на стороне сервера)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_DailyRoutinesResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/routines/{routine_id}:
+    get:
+      operationId: getRoutineById
+      tags: [routines]
+      summary: Одна рутина
+      parameters:
+        - $ref: "#/components/parameters/routine_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_RoutineDetailResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+    patch:
+      operationId: patchRoutineById
+      tags: [routines]
+      summary: Обновить рутину
+      parameters:
+        - $ref: "#/components/parameters/routine_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoutineRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_RoutineData"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+    delete:
+      operationId: deleteRoutineById
+      tags: [routines]
+      summary: Удалить рутину
+      description: |
+        HTTP 204 — без тела, без JSON-обёртки.
+      parameters:
+        - $ref: "#/components/parameters/routine_id"
+      responses:
+        "204":
+          description: Удалено
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/routines/{routine_id}/complete:
+    post:
+      operationId: postRoutineComplete
+      tags: [routines]
+      summary: Отметить рутину выполненной на дату
+      parameters:
+        - $ref: "#/components/parameters/routine_id"
+        - name: date
+          in: query
+          description: "YYYY-MM-DD; по умолчанию — сегодня (если пусто)"
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_CompleteRoutineResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/routines/{routine_id}/uncomplete:
+    post:
+      operationId: postRoutineUncomplete
+      tags: [routines]
+      summary: Снять отметку выполнения на дату
+      parameters:
+        - $ref: "#/components/parameters/routine_id"
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_UncompleteRoutineResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "404":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/users/me/character:
+    get:
+      operationId: getUserCharacter
+      tags: [users]
+      summary: Персонаж и прогресс уровня
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_GetCharacterResponse"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+  /api/v1/users/me/character/name:
+    put:
+      operationId: putUserCharacterName
+      tags: [users]
+      summary: Имя персонажа
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCharacterNameRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_UpdateCharacterNameResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
+components:
+  examples:
+    exListCampaigns:
+      summary: Httpx — GET /api/v1/campaigns
+      value:
+        success: true
+        data:
+          campaigns:
+            - campaign_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              goal_text: "Освоить бег 5 км"
+              status: active
+              current_quest: 2
+              total_quests: 5
+              overall_progress: 0.35
+    exOnboardingStatus:
+      summary: Httpx — GET .../onboarding/{id}/status
+      value:
+        success: true
+        data:
+          campaign_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+          status: active
+          goal_text: "Похудеть на 5 кг"
+          total_quests: 4
+          quests:
+            - quest_number: 1
+              title: "Первая веха"
+              description: "Краткое описание"
+              status: active
+              has_tasks: true
+    exCurrentQuest:
+      summary: Httpx — GET .../current-quest
+      value:
+        success: true
+        data:
+          quest:
+            id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+            campaign_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            quest_number: 2
+            title: "Интервалы"
+            description: "Чередуйте бег и шаг"
+            status: active
+            has_tasks: true
+            completion_rate: 0.0
+          tasks: []
+    exSubtaskComplete:
+      summary: Httpx — POST .../subtasks/{id}/complete
+      value:
+        success: true
+        data:
+          message: "Subtask completed successfully"
+          xp_awarded: 15
+    exErrorFeedbackRequired:
+      summary: Ошибка — POST .../next-quest без фидбека
+      value:
+        success: false
+        error:
+          code: FEEDBACK_REQUIRED
+          message: "Feedback is required before generating next quest"
+    exAsync202:
+      summary: Httpx — 202 async
+      value:
+        success: true
+        data:
+          status: generating
+          campaign_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+          message: "Next quest generation started. Poll current-quest for progress."
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (поле access_token в ответе register, login, refresh)
+
+  parameters:
+    campaign_id:
+      name: campaign_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    quest_id:
+      name: quest_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    task_id:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    subtask_id:
+      name: subtask_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    routine_id:
+      name: routine_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    HttpxError:
+      description: Ошибка (обёртка httpx)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/HttpxErrorBody"
+
+  schemas:
+    HttpxErrorBody:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: |
+                Список значений — в блоке **Коды error.code** в `info` этой спеки
+                (в т.ч. BAD_REQUEST, UNAUTHORIZED, NOT_FOUND, CONFLICT, FEEDBACK_REQUIRED, INTERNAL_ERROR).
+            message:
+              type: string
+              description: Текст из доменной/HTTP ошибки, для отладки и UI
+
+    HealthOK:
+      type: object
+      required: [status, database]
+      properties:
+        status:
+          type: string
+          example: healthy
+        database:
+          type: string
+          example: up
+
+    HealthError:
+      type: object
+      required: [status, database, error]
+      properties:
+        status:
+          type: string
+          example: unhealthy
+        database:
+          type: string
+          example: down
+        error:
+          type: string
+
+    PingResponse:
+      type: object
+      required: [message, version]
+      properties:
+        message:
+          type: string
+          example: pong
+        version:
+          type: string
+          example: 0.1.0
+
+    SendOTPRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    RegisterRequest:
+      type: object
+      required: [email, code, name, character_name]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+        name:
+          type: string
+        character_name:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    AuthCharacterData:
+      type: object
+      required: [id, name, total_xp, level, streak]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        total_xp:
+          type: integer
+        level:
+          type: integer
+        streak:
+          type: integer
+
+    TokenData:
+      type: object
+      required: [access_token, refresh_token, expires_at]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_at:
+          type: string
+          description: ISO 8601; формат в коде с зоной `Z07:00`
+
+    AuthResponse:
+      type: object
+      required: [user_id, email, name, character, token, is_new_user]
+      properties:
+        user_id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        character:
+          $ref: "#/components/schemas/AuthCharacterData"
+        token:
+          $ref: "#/components/schemas/TokenData"
+        is_new_user:
+          type: boolean
+
+    OTPSentResponse:
+      type: object
+      required: [message, email, user_exists]
+      properties:
+        message:
+          type: string
+        email:
+          type: string
+        user_exists:
+          type: boolean
+
+    # --- Httpx success helpers (data payload only inside data) ---
+    HttpxSuccess_OTPSentResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/OTPSentResponse"
+
+    HttpxSuccess_AuthResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/AuthResponse"
+
+    HttpxSuccess_TokenData:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/TokenData"
+
+    HttpxWrapperTrue:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data: {}
+
+    StartOnboardingRequest:
+      type: object
+      required: [goal_text]
+      properties:
+        goal_text:
+          type: string
+          minLength: 3
+          maxLength: 1000
+
+    QuestionData:
+      type: object
+      required: [content, options]
+      properties:
+        content:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/OptionData"
+
+    OptionData:
+      type: object
+      required: [value, label]
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+
+    StartOnboardingResponse:
+      type: object
+      required: [campaign_id, question]
+      properties:
+        campaign_id:
+          type: string
+        question:
+          $ref: "#/components/schemas/QuestionData"
+
+    HttpxSuccess_StartOnboardingResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/StartOnboardingResponse"
+
+    SendMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    ChatResponseDTO:
+      type: object
+      required: [questions_answered, can_generate]
+      properties:
+        question:
+          $ref: "#/components/schemas/QuestionData"
+        questions_answered:
+          type: integer
+        can_generate:
+          type: boolean
+
+    HttpxSuccess_ChatResponseDTO:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ChatResponseDTO"
+
+    MessageData:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          description: "Значения роли: user, assistant (см. домен)"
+        content:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/OptionData"
+
+    ConversationResponse:
+      type: object
+      required: [campaign_id, messages, status]
+      properties:
+        campaign_id:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageData"
+        status:
+          type: string
+          enum: [active, completed]
+          description: Статус беседы
+
+    HttpxSuccess_ConversationResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ConversationResponse"
+
+    QuestOverview:
+      type: object
+      required: [quest_number, title, description, status, has_tasks]
+      properties:
+        quest_number:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, completed]
+        has_tasks:
+          type: boolean
+
+    CampaignStatusResponse:
+      type: object
+      required: [campaign_id, status, goal_text, total_quests, quests]
+      properties:
+        campaign_id:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+          description: Статус кампании
+        goal_text:
+          type: string
+        total_quests:
+          type: integer
+        quests:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestOverview"
+
+    HttpxSuccess_CampaignStatusResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/CampaignStatusResponse"
+
+    AsyncResponse:
+      type: object
+      required: [status, campaign_id, message]
+      properties:
+        status:
+          type: string
+          example: generating
+        campaign_id:
+          type: string
+        message:
+          type: string
+
+    HttpxSuccess_AsyncResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/AsyncResponse"
+
+    SubtaskData:
+      type: object
+      required: [id, title, estimated_minutes, completed, sort_order]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        estimated_minutes:
+          type: integer
+        completed:
+          type: boolean
+        sort_order:
+          type: integer
+
+    TaskData:
+      type: object
+      required: [id, title, description, xp_reward, sort_order, completed, estimated_minutes, subtasks]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        xp_reward:
+          type: integer
+        sort_order:
+          type: integer
+        completed:
+          type: boolean
+        estimated_minutes:
+          type: integer
+        subtasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubtaskData"
+
+    QuestData:
+      type: object
+      required: [id, campaign_id, quest_number, title, description, status, has_tasks, completion_rate]
+      properties:
+        id:
+          type: string
+        campaign_id:
+          type: string
+        quest_number:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, completed]
+        has_tasks:
+          type: boolean
+        completion_rate:
+          type: number
+          format: double
+
+    FeedbackData:
+      type: object
+      required: [id, quest_id, sentiment, comment]
+      properties:
+        id:
+          type: string
+        quest_id:
+          type: string
+        sentiment:
+          type: string
+          enum: [good, ok, bad]
+        comment:
+          type: string
+
+    QuestDetail:
+      type: object
+      required: [quest, tasks]
+      properties:
+        quest:
+          $ref: "#/components/schemas/QuestData"
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskData"
+        feedback:
+          $ref: "#/components/schemas/FeedbackData"
+
+    CampaignData:
+      type: object
+      required: [id, user_id, goal_text, status, total_quests, overall_progress]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        goal_text:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        total_quests:
+          type: integer
+        overall_progress:
+          type: number
+          format: double
+
+    GetCampaignResponse:
+      type: object
+      required: [campaign, quests]
+      properties:
+        campaign:
+          $ref: "#/components/schemas/CampaignData"
+        quests:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestDetail"
+
+    HttpxSuccess_GetCampaignResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/GetCampaignResponse"
+
+    CampaignSummary:
+      type: object
+      required: [campaign_id, goal_text, status, current_quest, total_quests, overall_progress]
+      properties:
+        campaign_id:
+          type: string
+        goal_text:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        current_quest:
+          type: integer
+        total_quests:
+          type: integer
+        overall_progress:
+          type: number
+          format: double
+
+    ListCampaignsResponse:
+      type: object
+      required: [campaigns]
+      properties:
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignSummary"
+
+    HttpxSuccess_ListCampaignsResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ListCampaignsResponse"
+
+    RoadmapQuest:
+      type: object
+      required: [id, quest_number, title, description, status, has_tasks, completion_rate]
+      properties:
+        id:
+          type: string
+        quest_number:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, completed]
+        has_tasks:
+          type: boolean
+        completion_rate:
+          type: number
+          format: double
+
+    RoadmapResponse:
+      type: object
+      required: [campaign_id, goal_text, total_quests, quests]
+      properties:
+        campaign_id:
+          type: string
+        goal_text:
+          type: string
+        total_quests:
+          type: integer
+        quests:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoadmapQuest"
+
+    HttpxSuccess_RoadmapResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/RoadmapResponse"
+
+    GetCurrentQuestResponse:
+      type: object
+      required: [quest, tasks]
+      properties:
+        quest:
+          $ref: "#/components/schemas/QuestData"
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskData"
+
+    HttpxSuccess_GetCurrentQuestResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/GetCurrentQuestResponse"
+
+    TaskDetailResponse:
+      type: object
+      required: [task, subtasks]
+      properties:
+        task:
+          $ref: "#/components/schemas/TaskData"
+        subtasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubtaskData"
+
+    HttpxSuccess_TaskDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/TaskDetailResponse"
+
+    CompleteSubtaskResponse:
+      type: object
+      required: [message, xp_awarded]
+      properties:
+        message:
+          type: string
+        xp_awarded:
+          type: integer
+
+    HttpxSuccess_CompleteSubtaskResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/CompleteSubtaskResponse"
+
+    UncompleteSubtaskResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    HttpxSuccess_UncompleteSubtaskResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/UncompleteSubtaskResponse"
+
+    CompleteQuestResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    HttpxSuccess_CompleteQuestResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/CompleteQuestResponse"
+
+    SubmitFeedbackRequest:
+      type: object
+      required: [sentiment]
+      properties:
+        sentiment:
+          type: string
+          enum: [good, ok, bad]
+        comment:
+          type: string
+
+    SubmitFeedbackResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    HttpxSuccess_SubmitFeedbackResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/SubmitFeedbackResponse"
+
+    CreateRoutineRequest:
+      type: object
+      required: [title, repeat_type]
+      properties:
+        emoji:
+          type: string
+        title:
+          type: string
+        notes:
+          type: string
+        duration_minutes:
+          type: integer
+        xp_reward:
+          type: integer
+        repeat_type:
+          type: string
+          enum: [daily, weekly, custom, off]
+        times_per_week:
+          type: integer
+        days_of_week:
+          type: array
+          items:
+            type: integer
+          description: 0=воскресенье .. 6=суббота (домен)
+
+    UpdateRoutineRequest:
+      type: object
+      required: [title, repeat_type]
+      properties:
+        emoji:
+          type: string
+        title:
+          type: string
+        notes:
+          type: string
+        duration_minutes:
+          type: integer
+        xp_reward:
+          type: integer
+        repeat_type:
+          type: string
+          enum: [daily, weekly, custom, off]
+        times_per_week:
+          type: integer
+        days_of_week:
+          type: array
+          items:
+            type: integer
+        active:
+          type: boolean
+
+    RoutineData:
+      type: object
+      required:
+        - id
+        - emoji
+        - title
+        - notes
+        - duration_minutes
+        - xp_reward
+        - repeat_type
+        - times_per_week
+        - days_of_week
+        - active
+        - current_streak
+        - longest_streak
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        emoji:
+          type: string
+        title:
+          type: string
+        notes:
+          type: string
+        duration_minutes:
+          type: integer
+        xp_reward:
+          type: integer
+        repeat_type:
+          type: string
+        times_per_week:
+          type: integer
+        days_of_week:
+          type: array
+          items:
+            type: integer
+        active:
+          type: boolean
+        current_streak:
+          type: integer
+        longest_streak:
+          type: integer
+        last_completed_date:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    HttpxSuccess_RoutineData:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/RoutineData"
+
+    RoutineDetailResponse:
+      type: object
+      required: [routine, completed_today, today]
+      properties:
+        routine:
+          $ref: "#/components/schemas/RoutineData"
+        completed_today:
+          type: boolean
+        today:
+          type: string
+          format: date
+
+    HttpxSuccess_RoutineDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/RoutineDetailResponse"
+
+    ListRoutinesResponse:
+      type: object
+      required: [routines]
+      properties:
+        routines:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutineData"
+
+    HttpxSuccess_ListRoutinesResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ListRoutinesResponse"
+
+    DailyRoutineData:
+      type: object
+      required: [routine, is_done, xp_awarded]
+      properties:
+        routine:
+          $ref: "#/components/schemas/RoutineData"
+        is_done:
+          type: boolean
+        xp_awarded:
+          type: integer
+
+    DailyRoutinesResponse:
+      type: object
+      required: [date, routines]
+      properties:
+        date:
+          type: string
+          format: date
+        routines:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyRoutineData"
+
+    HttpxSuccess_DailyRoutinesResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/DailyRoutinesResponse"
+
+    CompleteRoutineResponse:
+      type: object
+      required: [routine, xp_awarded, already_done]
+      properties:
+        routine:
+          $ref: "#/components/schemas/RoutineData"
+        xp_awarded:
+          type: integer
+        already_done:
+          type: boolean
+
+    HttpxSuccess_CompleteRoutineResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/CompleteRoutineResponse"
+
+    UncompleteRoutineResponse:
+      type: object
+      required: [routine]
+      properties:
+        routine:
+          $ref: "#/components/schemas/RoutineData"
+
+    HttpxSuccess_UncompleteRoutineResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/UncompleteRoutineResponse"
+
+    UserCharacterData:
+      type: object
+      required: [id, user_id, name, total_xp, level, streak]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        name:
+          type: string
+        total_xp:
+          type: integer
+        level:
+          type: integer
+        streak:
+          type: integer
+        last_activity_date:
+          type: string
+          format: date
+          nullable: true
+
+    LevelProgress:
+      type: object
+      required:
+        - current_level
+        - current_xp
+        - xp_for_current_level
+        - xp_for_next_level
+        - progress_percent
+      properties:
+        current_level:
+          type: integer
+        current_xp:
+          type: integer
+        xp_for_current_level:
+          type: integer
+        xp_for_next_level:
+          type: integer
+        progress_percent:
+          type: number
+          format: double
+
+    GetCharacterResponse:
+      type: object
+      required: [character, level_progress, next_level_xp, current_level_name]
+      properties:
+        character:
+          $ref: "#/components/schemas/UserCharacterData"
+        level_progress:
+          $ref: "#/components/schemas/LevelProgress"
+        next_level_xp:
+          type: integer
+        current_level_name:
+          type: string
+
+    HttpxSuccess_GetCharacterResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/GetCharacterResponse"
+
+    UpdateCharacterNameRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 50
+
+    UpdateCharacterNameResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    HttpxSuccess_UpdateCharacterNameResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/UpdateCharacterNameResponse"

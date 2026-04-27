@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "error": {
+    "code": "FEEDBACK_REQUIRED",
+    "message": "Feedback is required before generating next quest"
+  }
+}

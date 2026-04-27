@@ -1,0 +1,10 @@
+# Линт OpenAPI: базовая валидность + правила по мере доработки спеки (фаза 2+)
+extends:
+  - recommended
+
+rules:
+  info-license: off
+  info-license-strict: off
+  tag-description: warn
+  operation-operationId: off
+  operation-4xx-response: off
