@@ -36,6 +36,9 @@ export interface Task {
   id: string
   /** ID подзадачи на бэке для POST /api/v1/subtasks/:id/complete */
   apiSubtaskId?: string
+  /** Родительская TaskData из API (строки от `subtasks[]`, не синтетический лист). */
+  parentTaskId?: string
+  parentTaskTitle?: string
   title: string
   context: string
   instructions: string

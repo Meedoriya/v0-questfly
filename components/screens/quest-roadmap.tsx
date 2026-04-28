@@ -186,6 +186,11 @@ export function QuestRoadmapScreen() {
               const status = getNodeStatus(task)
               const xPercent = getNodeX(i)
               const isCheckpoint = (i + 1) % 4 === 0
+              const prev = ti > 0 ? ms.tasks[ti - 1] : undefined
+              const groupStart =
+                Boolean(task.parentTaskId) &&
+                (!prev?.parentTaskId || prev.parentTaskId !== task.parentTaskId)
+
               return (
             <div
               key={task.id}
@@ -196,6 +201,11 @@ export function QuestRoadmapScreen() {
               }}
             >
               <div className="flex flex-col items-center">
+                {groupStart && task.parentTaskTitle ? (
+                  <p className="mb-1 max-w-[160px] text-center text-[10px] font-semibold leading-tight text-muted-foreground">
+                    {task.parentTaskTitle}
+                  </p>
+                ) : null}
                 {/* Day label */}
                 <span className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                   Day {task.day}

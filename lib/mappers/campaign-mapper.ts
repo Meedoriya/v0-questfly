@@ -32,6 +32,8 @@ function subtaskToUiTask(
   return {
     id: sid,
     apiSubtaskId: sid,
+    parentTaskId: str(parent.id),
+    parentTaskTitle: str(parent.title),
     title: str(st.title),
     context: str(parent.description, ""),
     instructions: str(st.title),
@@ -222,6 +224,28 @@ export function mapCampaignBundleToWrappedQuest(data: { campaign: unknown; quest
 
 export function mapGetCampaignResponse(data: { campaign: unknown; quests: unknown[] }): Quest[] {
   return [mapCampaignBundleToWrappedQuest(data)]
+}
+
+/**
+ * Сохраняет полный список шагов из GET /campaigns/:id и обновляет статусы из current-quest
+ * (там часто только «верхний» слой задач без subtasks в JSON).
+ */
+export function overlayTaskStatuses(base: Task[], fromCurrentQuest: Task[]): Task[] {
+  if (fromCurrentQuest.length === 0) return base
+  if (base.length === 0) return fromCurrentQuest
+
+  const pick = new Map<string, Task>()
+  for (const t of fromCurrentQuest) {
+    pick.set(t.id, t)
+    if (t.apiSubtaskId && t.apiSubtaskId !== t.id) pick.set(t.apiSubtaskId, t)
+  }
+
+  return base.map((t) => {
+    const o = pick.get(t.id) ?? (t.apiSubtaskId ? pick.get(t.apiSubtaskId) : undefined)
+    if (!o) return t
+    if (o.status === t.status) return t
+    return { ...t, status: o.status }
+  })
 }
 
 export function mapCurrentQuestResponse(

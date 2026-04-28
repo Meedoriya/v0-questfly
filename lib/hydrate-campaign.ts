@@ -3,6 +3,7 @@ import {
   campaignTitleFromBundle,
   mapCampaignBundleToWrappedQuest,
   mapCurrentQuestResponse,
+  overlayTaskStatuses,
 } from "@/lib/mappers/campaign-mapper"
 import type { Quest, Task } from "@/lib/types"
 
@@ -36,17 +37,28 @@ export async function hydrateCampaignState(campaignId: string): Promise<Hydrated
 
   const activeId = currentLeaf.id
 
-  const milestones = wrapped.milestones.map((ms) =>
-    ms.id === activeId
-      ? {
-          ...ms,
-          title: currentLeaf.title,
-          tasks: currentLeaf.tasks,
-          progress: currentLeaf.progress,
-          totalTasks: currentLeaf.totalTasks,
-        }
-      : ms,
-  )
+  const milestones = wrapped.milestones.map((ms) => {
+    if (ms.id !== activeId) return ms
+
+    const merged =
+      ms.tasks.length > 0
+        ? overlayTaskStatuses(ms.tasks, currentLeaf.tasks)
+        : currentLeaf.tasks.length > 0
+          ? currentLeaf.tasks
+          : ms.tasks
+
+    const doneCount = merged.filter((t) => t.status === "done").length
+    const totalTasks = merged.length > 0 ? merged.length : 1
+    const progress = merged.length > 0 ? doneCount : ms.progress
+
+    return {
+      ...ms,
+      title: currentLeaf.title,
+      tasks: merged,
+      progress,
+      totalTasks,
+    }
+  })
 
   const allTasks = milestones.flatMap((m) => m.tasks)
   const done = allTasks.filter((t) => t.status === "done").length
@@ -60,7 +72,11 @@ export async function hydrateCampaignState(campaignId: string): Promise<Hydrated
     apiQuestId: activeId,
   }
 
-  const nextTask = currentLeaf.tasks.find((t) => t.status === "active") ?? null
+  const activeMilestone = milestones.find((m) => m.id === activeId)
+  const nextTask =
+    activeMilestone?.tasks.find((t) => t.status === "active") ??
+    mergedQuest.tasks.find((t) => t.status === "active") ??
+    null
 
   return { quests: [mergedQuest], currentQuest: mergedQuest, currentTask: nextTask }
 }
