@@ -97,7 +97,7 @@ export function FeedbackScreen() {
       return
     }
 
-    const questId = currentQuest.id
+    const questId = currentQuest.apiQuestId ?? currentQuest.id
     setBusy(true)
     try {
       try {

@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo, type ReactElement } from "react"
 import { useApp } from "@/lib/store"
 import {
   ArrowLeft,
@@ -13,7 +14,7 @@ import {
   Plus,
   Repeat,
 } from "lucide-react"
-import type { Task } from "@/lib/types"
+import type { QuestMilestone, Task } from "@/lib/types"
 
 type NodeStatus = "done" | "active" | "locked"
 
@@ -51,9 +52,56 @@ export function QuestRoadmapScreen() {
     )
   }
 
+  const milestones = currentQuest.milestones
   const tasks = currentQuest.tasks
   const completedCount = tasks.filter((t) => t.status === "done").length
   const progressPercent = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0
+
+  const milestoneSections: QuestMilestone[] =
+    milestones && milestones.length > 0
+      ? milestones
+      : [{ id: currentQuest.id, questNumber: 1, title: "", tasks, status: "active", description: "", progress: 0, totalTasks: tasks.length }]
+
+  const connectors = useMemo(() => {
+    const flat: Task[] = []
+    for (const ms of milestoneSections) {
+      for (const task of ms.tasks) {
+        flat.push(task)
+      }
+    }
+    const paths: ReactElement[] = []
+    for (let j = 0; j < flat.length - 1; j++) {
+      const task = flat[j]
+      const i = j
+      const x1 = getNodeX(i)
+      const x2 = getNodeX(i + 1)
+      const y1 = i * 140 + 48 + 32
+      const y2 = (i + 1) * 140 + 32
+      const isCompleted = getNodeStatus(task) === "done"
+      paths.push(
+        <path
+          key={`conn-${task.id}-${j}`}
+          d={`M ${x1}% ${y1} C ${x1}% ${y1 + 50}, ${x2}% ${y2 - 50}, ${x2}% ${y2}`}
+          stroke={isCompleted ? "hsl(var(--primary))" : "hsl(var(--border))"}
+          strokeWidth={isCompleted ? 3 : 2}
+          strokeDasharray={isCompleted ? "none" : "8 5"}
+          fill="none"
+          strokeLinecap="round"
+        />,
+      )
+    }
+    return paths
+  }, [milestoneSections])
+
+  const milestoneStartIndexes = useMemo(() => {
+    let sum = 0
+    const out: number[] = []
+    for (const ms of milestoneSections) {
+      out.push(sum)
+      sum += ms.tasks.length
+    }
+    return out
+  }, [milestoneSections])
 
   const handleNodeTap = (task: Task) => {
     if (task.status === "active") {
@@ -121,35 +169,24 @@ export function QuestRoadmapScreen() {
           preserveAspectRatio="none"
           style={{ pointerEvents: "none" }}
         >
-          {tasks.map((task, i) => {
-            if (i === tasks.length - 1) return null
-            const x1 = getNodeX(i)
-            const x2 = getNodeX(i + 1)
-            const y1 = i * 140 + 48 + 32
-            const y2 = (i + 1) * 140 + 32
-            const isCompleted = getNodeStatus(task) === "done"
-
-            return (
-              <path
-                key={`conn-${task.id}`}
-                d={`M ${x1}% ${y1} C ${x1}% ${y1 + 50}, ${x2}% ${y2 - 50}, ${x2}% ${y2}`}
-                stroke={isCompleted ? "hsl(var(--primary))" : "hsl(var(--border))"}
-                strokeWidth={isCompleted ? 3 : 2}
-                strokeDasharray={isCompleted ? "none" : "8 5"}
-                fill="none"
-                strokeLinecap="round"
-              />
-            )
-          })}
+          {connectors}
         </svg>
 
         {/* Nodes */}
-        {tasks.map((task, i) => {
-          const status = getNodeStatus(task)
-          const xPercent = getNodeX(i)
-          const isCheckpoint = (i + 1) % 4 === 0
-
-          return (
+        {milestoneSections.map((ms, msIdx) => (
+          <div key={ms.id}>
+            {milestoneSections.length > 1 && ms.title.trim() !== "" ? (
+              <div className="mb-6 mt-4 first:mt-0">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-accent">Milestone {ms.questNumber}</p>
+                <p className="mt-1 font-semibold leading-snug text-foreground">{ms.title}</p>
+              </div>
+            ) : null}
+            {ms.tasks.map((task, ti) => {
+              const i = milestoneStartIndexes[msIdx]! + ti
+              const status = getNodeStatus(task)
+              const xPercent = getNodeX(i)
+              const isCheckpoint = (i + 1) % 4 === 0
+              return (
             <div
               key={task.id}
               className="relative flex items-start"
@@ -218,8 +255,10 @@ export function QuestRoadmapScreen() {
                 )}
               </div>
             </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        ))}
 
         {/* End trophy */}
         <div

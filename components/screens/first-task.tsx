@@ -24,7 +24,9 @@ export function FirstTaskScreen() {
         </button>
         <div className="flex flex-col">
           <span className="text-lg font-bold text-foreground">Day {currentTask.day}</span>
-          <span className="text-xs text-muted-foreground">{currentQuest.title}</span>
+          <span className="text-xs text-muted-foreground">
+            {currentTask.questTitle.trim() || currentQuest.title}
+          </span>
         </div>
       </header>
 

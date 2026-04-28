@@ -1,8 +1,8 @@
 import { getCampaign, getCurrentQuest } from "@/lib/api/campaigns"
 import {
   campaignTitleFromBundle,
+  mapCampaignBundleToWrappedQuest,
   mapCurrentQuestResponse,
-  mapGetCampaignResponse,
 } from "@/lib/mappers/campaign-mapper"
 import type { Quest, Task } from "@/lib/types"
 
@@ -13,18 +13,54 @@ export interface HydratedCampaign {
 }
 
 /**
- * Загружает кампанию и текущий квест с API, согласует список квестов с актуальным current-quest.
+ * Загружает кампанию и текущий квест с API.
+ * Одна карточка кампании с вехами (`milestones`); для feedback/complete — `currentQuest.apiQuestId`.
  */
 export async function hydrateCampaignState(campaignId: string): Promise<HydratedCampaign> {
   const bundle = await getCampaign(campaignId)
   const cq = await getCurrentQuest(campaignId)
-  const title = campaignTitleFromBundle(bundle)
-  const current = mapCurrentQuestResponse(cq, campaignId, title)
-  const fromBundle = mapGetCampaignResponse(bundle)
-  const merged = fromBundle.map((q) => (q.id === current.id ? current : q))
-  if (!merged.some((q) => q.id === current.id)) {
-    merged.push(current)
+  const goalTitle = campaignTitleFromBundle(bundle)
+
+  const wrapped = mapCampaignBundleToWrappedQuest(bundle)
+  const currentLeaf = mapCurrentQuestResponse(cq, campaignId, goalTitle)
+
+  if (!wrapped.milestones?.length) {
+    const nextTask = currentLeaf.tasks.find((t) => t.status === "active") ?? null
+    const qWithApi: Quest = { ...currentLeaf, apiQuestId: currentLeaf.id }
+    return {
+      quests: [qWithApi],
+      currentQuest: qWithApi,
+      currentTask: nextTask,
+    }
   }
-  const nextTask = current.tasks.find((t) => t.status === "active") ?? null
-  return { quests: merged, currentQuest: current, currentTask: nextTask }
+
+  const activeId = currentLeaf.id
+
+  const milestones = wrapped.milestones.map((ms) =>
+    ms.id === activeId
+      ? {
+          ...ms,
+          title: currentLeaf.title,
+          tasks: currentLeaf.tasks,
+          progress: currentLeaf.progress,
+          totalTasks: currentLeaf.totalTasks,
+        }
+      : ms,
+  )
+
+  const allTasks = milestones.flatMap((m) => m.tasks)
+  const done = allTasks.filter((t) => t.status === "done").length
+
+  const mergedQuest: Quest = {
+    ...wrapped,
+    milestones,
+    tasks: allTasks,
+    progress: allTasks.length > 0 ? done : wrapped.progress,
+    totalTasks: allTasks.length > 0 ? allTasks.length : 1,
+    apiQuestId: activeId,
+  }
+
+  const nextTask = currentLeaf.tasks.find((t) => t.status === "active") ?? null
+
+  return { quests: [mergedQuest], currentQuest: mergedQuest, currentTask: nextTask }
 }

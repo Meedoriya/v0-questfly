@@ -60,7 +60,7 @@ export function TaskWaitingScreen() {
 
       if (done) {
         try {
-          await completeQuest(q.id)
+          await completeQuest(q.apiQuestId ?? q.id)
         } catch (err) {
           const ignorable =
             err instanceof ApiError && (err.code === "CONFLICT" || err.code === "ALREADY_EXISTS")

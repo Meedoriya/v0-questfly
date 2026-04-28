@@ -1,10 +1,17 @@
 import { asRecord, num, str } from "@/lib/api/json-helpers"
-import type { Quest, Task } from "@/lib/types"
+import type { Quest, QuestMilestone, Task } from "@/lib/types"
 
 /**
  * Маппинг по `docs/openapi.yaml`: GetCampaignResponse.quests[] = QuestDetail
  * { quest: QuestData, tasks: TaskData[], feedback? }; TaskData.subtasks[] = SubtaskData (completed: boolean).
  */
+
+function normQuestStatus(s: string): QuestMilestone["status"] {
+  const x = s.toLowerCase()
+  if (x === "completed") return "completed"
+  if (x === "active") return "active"
+  return "pending"
+}
 
 function formatMinutes(m: number): string {
   if (!m || m <= 0) return "—"
@@ -81,7 +88,16 @@ function flattenTaskDataToUiTasks(
   })
 }
 
-export function mapQuestDetailToQuest(detail: unknown, campaignId: string, goalFallback: string): Quest {
+/**
+ * Одна строка кампании: quest + tasks[]
+ * @param startingDay первый номер «дня» для первой задачи (для следующей вехи без дубля Day 1)
+ */
+export function mapQuestDetailToQuest(
+  detail: unknown,
+  campaignId: string,
+  goalFallback: string,
+  startingDay = 1,
+): Quest {
   const d = asRecord(detail)
   if (!d) {
     return {
@@ -105,7 +121,7 @@ export function mapQuestDetailToQuest(detail: unknown, campaignId: string, goalF
   )
 
   const uiTasks: Task[] = []
-  let dayCounter = 1
+  let dayCounter = startingDay
   for (const td of sortedTasks) {
     const chunk = flattenTaskDataToUiTasks(td, questId, questTitle, dayCounter)
     uiTasks.push(...chunk)
@@ -142,12 +158,70 @@ export function campaignTitleFromBundle(bundle: { campaign: unknown }): string {
   return str(c.goal_text, str(c.title, "Кампания"))
 }
 
-export function mapGetCampaignResponse(data: { campaign: unknown; quests: unknown[] }): Quest[] {
+/** Один объект Quest на кампанию: цель из campaign, вехи = элементы quests[] с бэка. */
+export function mapCampaignBundleToWrappedQuest(data: { campaign: unknown; quests: unknown[] }): Quest {
   const camp = asRecord(data.campaign) || {}
   const cid = str(camp.id, "")
-  const fallback = campaignTitleFromBundle(data)
+  const goal = campaignTitleFromBundle(data)
   const qlist = Array.isArray(data.quests) ? data.quests : []
-  return qlist.map((detail) => mapQuestDetailToQuest(detail, cid, fallback))
+  const sorted = [...qlist].sort(
+    (a, b) =>
+      num(asRecord(asRecord(a)?.quest)?.quest_number, 0) -
+      num(asRecord(asRecord(b)?.quest)?.quest_number, 0),
+  )
+
+  if (sorted.length === 0) {
+    return {
+      id: cid ? `camp:${cid}` : "camp:unknown",
+      campaignId: cid || undefined,
+      title: goal,
+      mode: "Casual",
+      progress: 0,
+      totalTasks: 1,
+      streak: 0,
+      tasks: [],
+      milestones: [],
+    }
+  }
+
+  const milestones: QuestMilestone[] = []
+  let nextDayStart = 1
+
+  for (const detail of sorted) {
+    const leaf = mapQuestDetailToQuest(detail, cid, goal, nextDayStart)
+    const dq = asRecord(asRecord(detail)?.quest) || {}
+    milestones.push({
+      id: leaf.id,
+      questNumber: num(dq.quest_number, milestones.length + 1),
+      title: leaf.title,
+      description: str(dq.description, ""),
+      status: normQuestStatus(str(dq.status)),
+      tasks: leaf.tasks,
+      progress: leaf.progress,
+      totalTasks: leaf.totalTasks,
+    })
+    nextDayStart =
+      leaf.tasks.length > 0 ? Math.max(...leaf.tasks.map((t) => t.day)) + 1 : nextDayStart
+  }
+
+  const allTasks = milestones.flatMap((m) => m.tasks)
+  const done = allTasks.filter((t) => t.status === "done").length
+
+  return {
+    id: `camp:${cid}`,
+    campaignId: cid || undefined,
+    title: goal,
+    mode: "Casual",
+    progress: allTasks.length > 0 ? done : 0,
+    totalTasks: allTasks.length > 0 ? allTasks.length : 1,
+    streak: 0,
+    tasks: allTasks,
+    milestones,
+  }
+}
+
+export function mapGetCampaignResponse(data: { campaign: unknown; quests: unknown[] }): Quest[] {
+  return [mapCampaignBundleToWrappedQuest(data)]
 }
 
 export function mapCurrentQuestResponse(

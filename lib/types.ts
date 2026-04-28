@@ -72,10 +72,30 @@ export interface StreakSummary {
   previousStreak: number
 }
 
+/** Веха (эл. GET /campaigns/:id → quests[] / QuestDetail) внутри квест-кампании. */
+export interface QuestMilestone {
+  /** ID квеста на бэке (POST /quests/:id/feedback, complete и т.д.) */
+  id: string
+  questNumber: number
+  title: string
+  description: string
+  status: "pending" | "active" | "completed"
+  tasks: Task[]
+  progress: number
+  totalTasks: number
+}
+
 export interface Quest {
   id: string
   /** Родительская кампания (UUID) для синхронизации с API */
   campaignId?: string
+  /**
+   * Когда задано — карточка Home = одна кампания-цель, внутри вехи.
+   * `id` тогда синтетический `camp:<campaignId>`; для API квеста используйте `apiQuestId`.
+   */
+  milestones?: QuestMilestone[]
+  /** ID актуальной вехи для API (feedback, complete quest), если `id` обёртка кампании. */
+  apiQuestId?: string
   title: string
   mode: "Casual" | "Rank"
   progress: number
