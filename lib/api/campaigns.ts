@@ -8,6 +8,9 @@ export interface CampaignBundle {
 export interface CurrentQuestBundle {
   quest: unknown
   tasks: unknown[]
+  current_task_id: string | null
+  feedback_required: boolean
+  next_quest_generating: boolean
 }
 
 export async function listCampaigns(): Promise<{ campaigns: unknown[] }> {

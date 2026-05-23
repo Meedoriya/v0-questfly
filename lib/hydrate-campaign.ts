@@ -11,6 +11,9 @@ export interface HydratedCampaign {
   quests: Quest[]
   currentQuest: Quest
   currentTask: Task | null
+  currentTaskId: string | null
+  feedbackRequired: boolean
+  nextQuestGenerating: boolean
 }
 
 /**
@@ -22,16 +25,29 @@ export async function hydrateCampaignState(campaignId: string): Promise<Hydrated
   const cq = await getCurrentQuest(campaignId)
   const goalTitle = campaignTitleFromBundle(bundle)
 
+  const currentTaskId = cq.current_task_id ?? null
+  const feedbackRequired = cq.feedback_required ?? false
+  const nextQuestGenerating = cq.next_quest_generating ?? false
+
   const wrapped = mapCampaignBundleToWrappedQuest(bundle)
-  const currentLeaf = mapCurrentQuestResponse(cq, campaignId, goalTitle)
+  const currentLeaf = mapCurrentQuestResponse(cq, campaignId, goalTitle, currentTaskId)
 
   if (!wrapped.milestones?.length) {
     const nextTask = currentLeaf.tasks.find((t) => t.status === "active") ?? null
-    const qWithApi: Quest = { ...currentLeaf, apiQuestId: currentLeaf.id }
+    const qWithApi: Quest = {
+      ...currentLeaf,
+      apiQuestId: currentLeaf.id,
+      currentTaskId,
+      feedbackRequired,
+      nextQuestGenerating,
+    }
     return {
       quests: [qWithApi],
       currentQuest: qWithApi,
       currentTask: nextTask,
+      currentTaskId,
+      feedbackRequired,
+      nextQuestGenerating,
     }
   }
 
@@ -70,6 +86,9 @@ export async function hydrateCampaignState(campaignId: string): Promise<Hydrated
     progress: allTasks.length > 0 ? done : wrapped.progress,
     totalTasks: allTasks.length > 0 ? allTasks.length : 1,
     apiQuestId: activeId,
+    currentTaskId,
+    feedbackRequired,
+    nextQuestGenerating,
   }
 
   const activeMilestone = milestones.find((m) => m.id === activeId)
@@ -78,5 +97,12 @@ export async function hydrateCampaignState(campaignId: string): Promise<Hydrated
     mergedQuest.tasks.find((t) => t.status === "active") ??
     null
 
-  return { quests: [mergedQuest], currentQuest: mergedQuest, currentTask: nextTask }
+  return {
+    quests: [mergedQuest],
+    currentQuest: mergedQuest,
+    currentTask: nextTask,
+    currentTaskId,
+    feedbackRequired,
+    nextQuestGenerating,
+  }
 }

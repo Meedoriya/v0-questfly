@@ -33,11 +33,22 @@ import { CollabQuestFailureScreen } from "@/components/screens/collab-quest-fail
 import { CollabCelebrationScreen } from "@/components/screens/collab-celebration"
 import { CollabFinalResultsScreen } from "@/components/screens/collab-final-results"
 
+const QUEST_GATE_SCREENS = new Set(["quest-roadmap", "home", "quest-activity", "first-task"])
+
 export function ScreenRouter() {
-  const { screen, bootstrapComplete } = useApp()
+  const { screen, bootstrapComplete, currentQuest } = useApp()
 
   if (!bootstrapComplete) {
     return <LoadingScreen />
+  }
+
+  if (QUEST_GATE_SCREENS.has(screen)) {
+    if (currentQuest?.nextQuestGenerating) {
+      return <LoadingScreen />
+    }
+    if (currentQuest?.feedbackRequired) {
+      return <FeedbackScreen />
+    }
   }
 
   switch (screen) {

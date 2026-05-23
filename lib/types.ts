@@ -99,6 +99,12 @@ export interface Quest {
   milestones?: QuestMilestone[]
   /** ID актуальной вехи для API (feedback, complete quest), если `id` обёртка кампании. */
   apiQuestId?: string
+  /** ID активной TaskData из GET .../current-quest.current_task_id; null/undefined ⇒ нет активной (квест готов к завершению). */
+  currentTaskId?: string | null
+  /** quest.status=completed, фидбек ещё не оставлен — показать feedback screen. */
+  feedbackRequired?: boolean
+  /** Фидбек получен, следующий квест ещё генерится — показать спиннер. */
+  nextQuestGenerating?: boolean
   title: string
   mode: "Casual" | "Rank"
   progress: number

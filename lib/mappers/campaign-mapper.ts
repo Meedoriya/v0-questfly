@@ -13,6 +13,8 @@ function normQuestStatus(s: string): QuestMilestone["status"] {
   return "pending"
 }
 
+type DayGate = "done" | "active" | "locked"
+
 function formatMinutes(m: number): string {
   if (!m || m <= 0) return "—"
   return `${m} min`
@@ -24,11 +26,19 @@ function subtaskToUiTask(
   questId: string,
   questTitle: string,
   day: number,
-  isActive: boolean,
+  gate: DayGate,
 ): Task {
   const st = asRecord(stRaw) || {}
   const completed = st.completed === true
   const sid = str(st.id)
+  let status: Task["status"]
+  if (gate === "done") {
+    status = "done"
+  } else if (gate === "active") {
+    status = completed ? "done" : "active"
+  } else {
+    status = "pending"
+  }
   return {
     id: sid,
     apiSubtaskId: sid,
@@ -41,7 +51,7 @@ function subtaskToUiTask(
     questId,
     questTitle,
     day,
-    status: completed ? "done" : isActive ? "active" : "pending",
+    status,
   }
 }
 
@@ -50,6 +60,7 @@ function flattenTaskDataToUiTasks(
   questId: string,
   questTitle: string,
   daySeed: number,
+  gate: DayGate,
 ): Task[] {
   const t = asRecord(taskRaw)
   if (!t) return []
@@ -61,6 +72,14 @@ function flattenTaskDataToUiTasks(
   if (sortedSubs.length === 0) {
     const tid = str(t.id)
     const completed = t.completed === true
+    let status: Task["status"]
+    if (gate === "done") {
+      status = "done"
+    } else if (gate === "active") {
+      status = completed ? "done" : "active"
+    } else {
+      status = "pending"
+    }
     return [
       {
         id: tid,
@@ -72,22 +91,14 @@ function flattenTaskDataToUiTasks(
         questId,
         questTitle,
         day: daySeed,
-        status: completed ? "done" : "active",
+        status,
       },
     ]
   }
 
-  let assignedActive = false
-  return sortedSubs.map((st, i) => {
-    const stRec = asRecord(st) || {}
-    const completed = stRec.completed === true
-    let isActive = false
-    if (!completed && !assignedActive) {
-      isActive = true
-      assignedActive = true
-    }
-    return subtaskToUiTask(st, t, questId, questTitle, daySeed + i, isActive)
-  })
+  return sortedSubs.map((st, i) =>
+    subtaskToUiTask(st, t, questId, questTitle, daySeed + i, gate),
+  )
 }
 
 /**
@@ -99,6 +110,7 @@ export function mapQuestDetailToQuest(
   campaignId: string,
   goalFallback: string,
   startingDay = 1,
+  currentTaskId: string | null = null,
 ): Quest {
   const d = asRecord(detail)
   if (!d) {
@@ -117,27 +129,59 @@ export function mapQuestDetailToQuest(
   const q = asRecord(d.quest) || {}
   const questId = str(q.id, "quest-unknown")
   const questTitle = str(q.title, goalFallback)
+  const questStatusRaw = str(q.status)
   const tasksRaw = Array.isArray(d.tasks) ? d.tasks : []
   const sortedTasks = [...tasksRaw].sort(
     (a, b) => num(asRecord(a)?.sort_order, 0) - num(asRecord(b)?.sort_order, 0),
   )
 
+  // Compute gate per TaskData
+  const gates: DayGate[] = new Array(sortedTasks.length).fill("locked")
+  const pointerIndex =
+    currentTaskId !== null
+      ? sortedTasks.findIndex((tr) => str(asRecord(tr)?.id) === currentTaskId)
+      : -1
+
+  if (currentTaskId !== null && pointerIndex >= 0) {
+    for (let i = 0; i < sortedTasks.length; i++) {
+      if (i < pointerIndex) gates[i] = "done"
+      else if (i === pointerIndex) gates[i] = "active"
+      else gates[i] = "locked"
+    }
+  } else if (questStatusRaw.toLowerCase() === "completed") {
+    for (let i = 0; i < sortedTasks.length; i++) gates[i] = "done"
+  } else {
+    // No pointer (or pointer not found): walk by sort_order
+    let activeAssigned = false
+    for (let i = 0; i < sortedTasks.length; i++) {
+      const tr = asRecord(sortedTasks[i]) || {}
+      const completed = tr.completed === true
+      if (completed) {
+        gates[i] = "done"
+      } else if (!activeAssigned) {
+        gates[i] = "active"
+        activeAssigned = true
+      } else {
+        gates[i] = "locked"
+      }
+    }
+  }
+
   const uiTasks: Task[] = []
   let dayCounter = startingDay
-  for (const td of sortedTasks) {
-    const chunk = flattenTaskDataToUiTasks(td, questId, questTitle, dayCounter)
+  for (let i = 0; i < sortedTasks.length; i++) {
+    const chunk = flattenTaskDataToUiTasks(sortedTasks[i], questId, questTitle, dayCounter, gates[i])
     uiTasks.push(...chunk)
     dayCounter += Math.max(chunk.length, 1)
   }
 
   const doneCount = uiTasks.filter((t) => t.status === "done").length
-  const questStatus = str(q.status)
 
   let progress: number
   let totalTasks: number
   if (uiTasks.length === 0) {
     totalTasks = 1
-    progress = questStatus === "completed" ? 1 : 0
+    progress = questStatusRaw === "completed" ? 1 : 0
   } else {
     totalTasks = uiTasks.length
     progress = doneCount
@@ -252,6 +296,13 @@ export function mapCurrentQuestResponse(
   data: { quest: unknown; tasks: unknown[] },
   campaignId: string,
   fallbackTitle: string,
+  currentTaskId: string | null = null,
 ): Quest {
-  return mapQuestDetailToQuest({ quest: data.quest, tasks: data.tasks }, campaignId, fallbackTitle)
+  return mapQuestDetailToQuest(
+    { quest: data.quest, tasks: data.tasks },
+    campaignId,
+    fallbackTitle,
+    1,
+    currentTaskId,
+  )
 }

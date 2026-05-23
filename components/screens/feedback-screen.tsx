@@ -111,21 +111,36 @@ export function FeedbackScreen() {
       }
 
       try {
-        await requestNextQuest(activeCampaignId)
         await waitForNextQuestReady(activeCampaignId, questId)
       } catch (err) {
-        if (err instanceof ApiError && err.code === "FEEDBACK_REQUIRED") {
-          setError("Нужен отзыв по квесту перед следующей вехой")
-          return
-        }
-        if (err instanceof ApiError && (err.code === "NOT_FOUND" || err.code === "BAD_REQUEST")) {
+        if (err instanceof ApiError && err.code === "TIMEOUT") {
+          // Бекенд не успел сгенерировать сам — пробуем повторно запустить и поллим ещё раз.
+          try {
+            await requestNextQuest(activeCampaignId)
+            await waitForNextQuestReady(activeCampaignId, questId)
+          } catch (retryErr) {
+            if (retryErr instanceof ApiError && retryErr.code === "FEEDBACK_REQUIRED") {
+              setError("Нужен отзыв по квесту перед следующей вехой")
+              return
+            }
+            if (retryErr instanceof ApiError && (retryErr.code === "NOT_FOUND" || retryErr.code === "BAD_REQUEST")) {
+              await syncCampaignFromApi(activeCampaignId)
+              refreshCharacterFromApi()
+              setFeedbackDraft("")
+              setScreen("home")
+              return
+            }
+            throw retryErr
+          }
+        } else if (err instanceof ApiError && (err.code === "NOT_FOUND" || err.code === "BAD_REQUEST")) {
           await syncCampaignFromApi(activeCampaignId)
           refreshCharacterFromApi()
           setFeedbackDraft("")
           setScreen("home")
           return
+        } else {
+          throw err
         }
-        throw err
       }
 
       await syncCampaignFromApi(activeCampaignId)

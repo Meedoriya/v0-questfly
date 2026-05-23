@@ -61,6 +61,9 @@ describe("resolveInitialSessionFromCampaigns", () => {
       quests: [mockQuest],
       currentQuest: mockQuest,
       currentTask: null,
+      currentTaskId: null,
+      feedbackRequired: false,
+      nextQuestGenerating: false,
     })
     vi.mocked(listCampaigns).mockResolvedValue({
       campaigns: [
@@ -93,6 +96,9 @@ describe("resolveInitialSessionFromCampaigns", () => {
       quests: [mockQuest],
       currentQuest: mockQuest,
       currentTask: null,
+      currentTaskId: null,
+      feedbackRequired: false,
+      nextQuestGenerating: false,
     })
     vi.mocked(listCampaigns).mockResolvedValue({
       campaigns: [
