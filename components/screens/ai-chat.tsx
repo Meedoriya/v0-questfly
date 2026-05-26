@@ -210,7 +210,7 @@ export function AiChatScreen() {
                 key={getOptionKey(opt, idx)}
                 type="button"
                 disabled={isTyping || isGenerating}
-                onClick={() => void sendUserText(getOptionSubmitValue(opt))}
+                onClick={() => void sendUserText(getOptionLabel(opt))}
                 className="shrink-0 rounded-full border border-primary/25 bg-primary/5 px-4 py-2 text-[13px] font-medium text-primary transition-all hover:bg-primary/10 active:scale-95 disabled:opacity-50"
               >
                 {getOptionLabel(opt)}
