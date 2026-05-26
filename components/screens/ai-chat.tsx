@@ -13,7 +13,7 @@ import { conversationToChatMessages, newUserMessage, questionToAiMessage } from 
 import { getOptionKey, getOptionLabel, getOptionSubmitValue, getLastAiWithOptions } from "@/lib/chat-options"
 import { stripLastAiOptions } from "@/lib/strip-ai-options"
 import { hydrateCampaignState } from "@/lib/hydrate-campaign"
-import { Bot, Loader2, Send } from "lucide-react"
+import { Bot, Loader2, Send, ChevronLeft } from "lucide-react"
 
 export function AiChatScreen() {
   const {
@@ -132,7 +132,15 @@ export function AiChatScreen() {
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-5 py-4 backdrop-blur-lg">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+        <button
+          type="button"
+          onClick={() => setScreen("home")}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-all hover:bg-primary/5 hover:text-muted-foreground active:scale-90"
+          aria-label="Back to home"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
           <Bot className="h-4.5 w-4.5 text-primary" />
         </div>
         <div className="min-w-0">
