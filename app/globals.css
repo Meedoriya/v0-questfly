@@ -223,3 +223,43 @@
 .animate-radial-burst {
   animation: radial-burst 1.2s ease-out forwards;
 }
+
+@keyframes orbit-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes aurora-spin {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+}
+
+@keyframes drift-up {
+  0% { transform: translate(0, 40px); opacity: 0; }
+  15% { opacity: 0.9; }
+  85% { opacity: 0.9; }
+  100% { transform: translate(var(--drift-x, 0px), -140px); opacity: 0; }
+}
+
+@keyframes core-breathe {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.06); filter: brightness(1.25); }
+}
+
+@keyframes status-fade {
+  0% { opacity: 0; transform: translateY(6px); }
+  18%, 82% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+.animate-orbit-slow { animation: orbit-cw 18s linear infinite; }
+.animate-orbit-medium { animation: orbit-ccw 12s linear infinite; }
+.animate-orbit-fast { animation: orbit-cw 8s linear infinite; }
+.animate-aurora { animation: aurora-spin 22s ease-in-out infinite; }
+.animate-drift-up { animation: drift-up 6s ease-in-out infinite; }
+.animate-core-breathe { animation: core-breathe 3s ease-in-out infinite; }

@@ -5,6 +5,7 @@ import { useApp } from "@/lib/store"
 import { startOnboarding } from "@/lib/api/onboarding"
 import { ApiError } from "@/lib/api/errors"
 import { questionToAiMessage } from "@/lib/onboarding-messages"
+import { GoalSummoningLoader } from "@/components/goal-summoning-loader"
 import { Send, Sparkles } from "lucide-react"
 
 const GOAL_CHIPS = [
@@ -23,6 +24,7 @@ export function GoalInputScreen() {
   const [inputValue, setInputValue] = useState("")
   const [inputFocused, setInputFocused] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [busyGoal, setBusyGoal] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   async function submitGoal(raw: string) {
@@ -32,6 +34,7 @@ export function GoalInputScreen() {
       return
     }
     setError(null)
+    setBusyGoal(goalText)
     setBusy(true)
     try {
       const data = await startOnboarding(goalText)
@@ -44,6 +47,10 @@ export function GoalInputScreen() {
     } finally {
       setBusy(false)
     }
+  }
+
+  if (busy) {
+    return <GoalSummoningLoader goal={busyGoal} />
   }
 
   return (
