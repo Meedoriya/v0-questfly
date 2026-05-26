@@ -208,7 +208,7 @@ export function QuestRoadmapScreen() {
                 ) : null}
                 {/* Day label */}
                 <span className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Day {task.day}
+                  Task {task.day}
                 </span>
 
                 {/* Node circle */}
