@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useApp } from "@/lib/store"
-import { Sword } from "lucide-react"
+import { Sword, ChevronLeft } from "lucide-react"
 
 export function LoadingScreen() {
   const { setScreen, currentQuest } = useApp()
@@ -30,7 +30,17 @@ export function LoadingScreen() {
   }, [progress, setScreen])
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-8 px-6">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center gap-8 px-6">
+      <button
+        type="button"
+        onClick={() => setScreen("home")}
+        className="absolute left-4 top-5 flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-muted-foreground/50 transition-all duration-300 hover:bg-primary/5 hover:text-muted-foreground animate-fade-in"
+        style={{ animationDelay: "0.6s", opacity: 0, animationFillMode: "forwards" }}
+        aria-label="Back to home"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        <span className="text-xs font-medium tracking-wide">Home</span>
+      </button>
       <div className="relative flex h-24 w-24 items-center justify-center">
         <div className="absolute inset-0 rounded-full bg-primary/10 animate-ping" />
         <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 animate-pulse-glow">
@@ -67,3 +77,4 @@ export function LoadingScreen() {
     </div>
   )
 }
+
