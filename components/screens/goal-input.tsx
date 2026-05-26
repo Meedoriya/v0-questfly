@@ -6,7 +6,7 @@ import { startOnboarding } from "@/lib/api/onboarding"
 import { ApiError } from "@/lib/api/errors"
 import { questionToAiMessage } from "@/lib/onboarding-messages"
 import { GoalSummoningLoader } from "@/components/goal-summoning-loader"
-import { Send, Sparkles } from "lucide-react"
+import { Send, Sparkles, ChevronLeft } from "lucide-react"
 
 const GOAL_CHIPS = [
   "Learn guitar",
@@ -55,6 +55,16 @@ export function GoalInputScreen() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
+      <div className="flex items-center px-4 pt-4">
+        <button
+          type="button"
+          onClick={() => setScreen("home")}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/60 transition-all hover:bg-primary/5 hover:text-muted-foreground active:scale-90"
+          aria-label="Back to home"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      </div>
       <div className="flex flex-1 flex-col items-center justify-center px-6">
         <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 animate-pulse-glow">
           <Sparkles className="h-8 w-8 text-primary" />
