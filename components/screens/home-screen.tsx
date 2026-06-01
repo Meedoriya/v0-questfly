@@ -46,6 +46,7 @@ import {
   Timer,
   Crown,
   MessageCircle,
+  LogOut,
 } from "lucide-react"
 
 /* ---------- helpers ---------- */
@@ -365,7 +366,7 @@ function ProgressTab() {
   const totalTasksDone = quests.reduce((acc, q) => acc + q.tasks.filter((t) => t.status === "done").length, 0)
 
   return (
-    <div className="flex flex-col gap-6 px-6 pt-6">
+    <div className="flex flex-col gap-6 px-6 pt-6 lg:px-10 lg:pt-8">
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-border bg-card p-4 text-center">
@@ -391,23 +392,24 @@ function ProgressTab() {
         <GitHubHeatmap />
       </section>
 
-      {/* Life Radar */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Life Radar</h2>
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-card py-6">
-          <RadarDiagram
-            characteristics={userProgress.characteristics}
-            size={280}
-            animated
-          />
-        </div>
-      </section>
+      {/* Life Radar + Weekly Progress side-by-side on desktop */}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Life Radar</h2>
+          <div className="flex items-center justify-center rounded-2xl border border-border bg-card py-6">
+            <RadarDiagram
+              characteristics={userProgress.characteristics}
+              size={280}
+              animated
+            />
+          </div>
+        </section>
 
-      {/* Relative Progress - moved here from Home */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Weekly Progress</h2>
-        <RelativeProgressCard characteristics={userProgress.characteristics} />
-      </section>
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Weekly Progress</h2>
+          <RelativeProgressCard characteristics={userProgress.characteristics} />
+        </section>
+      </div>
 
       {/* Weekly Bar Chart */}
       <section className="pb-2">
@@ -432,9 +434,9 @@ function SocialTab() {
   const [activeSection, setActiveSection] = useState<"feed" | "friends">("feed")
 
   return (
-    <div className="flex flex-col gap-6 px-6 pt-6">
+    <div className="flex flex-col gap-6 px-6 pt-6 lg:px-10 lg:pt-8">
       {/* Section Toggle */}
-      <div className="flex gap-2 rounded-xl bg-secondary p-1">
+      <div className="flex gap-2 rounded-xl bg-secondary p-1 lg:max-w-sm">
         <button
           onClick={() => setActiveSection("feed")}
           className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
@@ -548,7 +550,7 @@ function SocialTab() {
           <section>
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Friend Activity</h2>
             {userProgress.friends.length > 0 ? (
-              <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {userProgress.friends.map((friend) => (
                   <SocialFeedCard key={friend.id} friend={friend} />
                 ))}
@@ -564,7 +566,7 @@ function SocialTab() {
         </>
       ) : (
         <section>
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {userProgress.friends.map((friend) => (
               <div key={friend.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
@@ -658,7 +660,7 @@ function HomeTab() {
 
   return (
     <div className="flex flex-col gap-0">
-      <div className="flex flex-col gap-6 px-6 pt-6">
+      <div className="grid grid-cols-1 gap-6 px-6 pt-6 lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:px-10 lg:pt-8">
         {/* Main Campaign */}
         <section>
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Main Campaign</h2>
@@ -856,7 +858,7 @@ function ProfileTab() {
   const levelPct = userProgress.levelProgressPercent
 
   return (
-    <div className="flex flex-col gap-6 px-6 pt-6">
+    <div className="flex flex-col gap-6 px-6 pt-6 lg:px-10 lg:pt-8">
       {/* Streak + Level Header */}
       <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-streak/15">
@@ -923,21 +925,23 @@ function ProfileTab() {
         </div>
       </div>
 
-      {/* Life Radar Mini */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Life Radar</h2>
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-card py-4">
-          <RadarDiagram
-            characteristics={userProgress.characteristics}
-            size={220}
-            showLabels
-          />
-        </div>
-      </section>
+      {/* Life Radar + Habits side-by-side on desktop */}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        {/* Life Radar Mini */}
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Life Radar</h2>
+          <div className="flex items-center justify-center rounded-2xl border border-border bg-card py-4">
+            <RadarDiagram
+              characteristics={userProgress.characteristics}
+              size={220}
+              showLabels
+            />
+          </div>
+        </section>
 
-      {/* Habits */}
-      {habits.length > 0 && (
-        <section className="pb-2">
+        {/* Habits */}
+        {habits.length > 0 && (
+          <section className="pb-2">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Habits</h2>
           <div className="flex flex-col gap-2">
             {habits.map((h) => (
@@ -951,25 +955,82 @@ function ProfileTab() {
             ))}
           </div>
         </section>
-      )}
+        )}
+      </div>
     </div>
   )
 }
 
-/* ---------- bottom nav ---------- */
+/* ---------- navigation ---------- */
 
-function BottomNav({ active, onNavigate }: { active: string; onNavigate: (tab: string) => void }) {
-  const tabs = [
-    { id: "home", label: "Home", icon: Home },
-    { id: "social", label: "Social", icon: MessageCircle },
-    { id: "progress", label: "Progress", icon: BarChart3 },
-    { id: "profile", label: "Profile", icon: User },
-  ]
+const NAV_TABS = [
+  { id: "home", label: "Home", icon: Home },
+  { id: "social", label: "Social", icon: MessageCircle },
+  { id: "progress", label: "Progress", icon: BarChart3 },
+  { id: "profile", label: "Profile", icon: User },
+]
+
+/* Desktop: persistent left sidebar (brand · nav · user + sign out). */
+function SidebarNav({ active, onNavigate }: { active: string; onNavigate: (tab: string) => void }) {
+  const { user, signOut } = useAuth()
+  const charName = user?.character.name?.trim() || "Adventurer"
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-lg pb-6 pt-2">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border/60 bg-card/40 backdrop-blur-xl lg:flex">
+      <div className="flex items-center gap-2.5 px-6 py-6">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15">
+          <Sword className="h-5 w-5 text-primary" />
+        </div>
+        <span className="font-display text-lg font-bold tracking-tight text-foreground">QuestForge</span>
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
+        {NAV_TABS.map((tab) => {
+          const Icon = tab.icon
+          const isActive = active === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onNavigate(tab.id)}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="border-t border-border/60 p-3">
+        <div className="flex items-center gap-3 rounded-xl px-3 py-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
+            {profileInitials(charName)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">{charName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{user?.email ?? ""}</p>
+          </div>
+        </div>
+        <button
+          onClick={signOut}
+          className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+        >
+          <LogOut className="h-5 w-5" />
+          Выйти
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+/* Mobile: bottom tab bar. */
+function BottomNav({ active, onNavigate }: { active: string; onNavigate: (tab: string) => void }) {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 pb-6 pt-2 backdrop-blur-lg lg:hidden">
       <div className="mx-auto flex max-w-md items-center justify-around">
-        {tabs.map((tab) => {
+        {NAV_TABS.map((tab) => {
           const Icon = tab.icon
           const isActive = active === tab.id
           return (
@@ -1011,26 +1072,32 @@ export function HomeScreen() {
     refreshCharacterFromApi()
   }, [refreshCharacterFromApi])
 
-  return (
-    <div className="flex min-h-dvh flex-col pb-24">
-      <header className="flex items-center justify-between px-6 pb-2 pt-12">
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-foreground">
-            {activeTab === "home" && greeting}
-            {activeTab === "social" && "Social"}
-            {activeTab === "progress" && "Progress"}
-            {activeTab === "profile" && "Profile"}
-          </h1>
-        </div>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary" aria-label="Profile">
-          <User className="h-5 w-5 text-foreground" />
-        </button>
-      </header>
+  const title =
+    activeTab === "home" ? greeting : activeTab === "social" ? "Social" : activeTab === "progress" ? "Progress" : "Profile"
 
-      {activeTab === "home" && <HomeTab />}
-      {activeTab === "social" && <SocialTab />}
-      {activeTab === "progress" && <ProgressTab />}
-      {activeTab === "profile" && <ProfileTab />}
+  return (
+    <div className="min-h-dvh lg:pl-64">
+      <SidebarNav active={activeTab} onNavigate={setActiveTab} />
+
+      <div className="mx-auto w-full max-w-5xl">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border/40 bg-background/70 px-6 py-4 backdrop-blur-xl lg:px-10 lg:py-6">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground lg:text-3xl">{title}</h1>
+          <button
+            onClick={() => setActiveTab("profile")}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary lg:hidden"
+            aria-label="Profile"
+          >
+            <User className="h-5 w-5 text-foreground" />
+          </button>
+        </header>
+
+        <div className="pb-28 lg:pb-12">
+          {activeTab === "home" && <HomeTab />}
+          {activeTab === "social" && <SocialTab />}
+          {activeTab === "progress" && <ProgressTab />}
+          {activeTab === "profile" && <ProfileTab />}
+        </div>
+      </div>
 
       <BottomNav active={activeTab} onNavigate={setActiveTab} />
     </div>
