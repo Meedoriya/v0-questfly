@@ -991,9 +991,21 @@ function BottomNav({ active, onNavigate }: { active: string; onNavigate: (tab: s
 
 /* ---------- main export ---------- */
 
+function greetingForHour(hour: number): string {
+  if (hour < 5) return "Late night"
+  if (hour < 12) return "Good morning"
+  if (hour < 18) return "Good afternoon"
+  return "Good evening"
+}
+
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("home")
   const { refreshCharacterFromApi } = useApp()
+  const [greeting, setGreeting] = useState("Welcome back")
+
+  useEffect(() => {
+    setGreeting(greetingForHour(new Date().getHours()))
+  }, [])
 
   useEffect(() => {
     refreshCharacterFromApi()
@@ -1004,7 +1016,7 @@ export function HomeScreen() {
       <header className="flex items-center justify-between px-6 pb-2 pt-12">
         <div>
           <h1 className="font-serif text-2xl font-bold text-foreground">
-            {activeTab === "home" && "Good evening"}
+            {activeTab === "home" && greeting}
             {activeTab === "social" && "Social"}
             {activeTab === "progress" && "Progress"}
             {activeTab === "profile" && "Profile"}

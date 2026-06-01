@@ -11,8 +11,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-space-grotesk)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
+        // Backwards-compatible alias: existing `font-serif` usages now render the display face.
+        serif: ['var(--font-display)', 'system-ui', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
