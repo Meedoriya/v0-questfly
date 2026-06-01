@@ -1,10 +1,22 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Space_Grotesk } from 'next/font/google'
+import { Plus_Jakarta_Sans, Unbounded } from 'next/font/google'
 
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' })
+// Body: clean, geometric, highly legible on small screens.
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+})
+
+// Display: bold, circular, game-like — used for hero headings, XP numbers, celebrations.
+const unbounded = Unbounded({
+  subsets: ['latin'],
+  variable: '--font-display',
+  weight: ['500', '600', '700', '800'],
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'QuestForge - Turn Goals Into Quests',
@@ -26,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
+      <body className={`${jakarta.variable} ${unbounded.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>
