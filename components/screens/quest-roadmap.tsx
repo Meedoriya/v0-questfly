@@ -13,7 +13,6 @@ import {
   Play,
   Plus,
   Repeat,
-  Target,
   Map as MapIcon,
 } from "lucide-react"
 import type { QuestMilestone, Task } from "@/lib/types"
@@ -222,60 +221,55 @@ export function QuestRoadmapScreen() {
       </header>
 
       {/* ───────── Desktop command rail (hidden on mobile) ───────── */}
-      <aside className="sticky top-0 hidden h-dvh w-80 shrink-0 flex-col border-r border-border/60 bg-card/30 backdrop-blur-xl lg:flex">
-        {/* Top: back + mode + title + ring */}
-        <div className="flex flex-col gap-5 px-6 pb-5 pt-8">
+      <aside className="sticky top-0 hidden h-dvh w-80 shrink-0 flex-col border-r border-border/60 bg-card/20 backdrop-blur-xl lg:flex">
+        {/* Top: back + identity + single progress hero */}
+        <div className="flex flex-col gap-6 px-7 pb-6 pt-7">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setScreen("home")}
-              className="flex h-9 items-center gap-2 rounded-full bg-secondary/60 pl-2.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="-ml-1.5 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+              aria-label="Back to hub"
             >
               <ArrowLeft className="h-4 w-4" />
-              Hub
             </button>
-            <span className="rounded-full bg-accent/15 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {currentQuest.mode}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <MapIcon className="h-3.5 w-3.5 text-primary" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Quest Map</span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 text-primary">
+              <MapIcon className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Quest Map</span>
+            </div>
+            <h1 className="font-display text-2xl font-bold leading-tight text-foreground">
+              {currentQuest.title}
+            </h1>
           </div>
-          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">
-            {currentQuest.title}
-          </h1>
 
-          <div className="flex items-center justify-center pt-1">
+          {/* Single hero metric: ring + one quiet caption line */}
+          <div className="flex flex-col items-center gap-3 pt-1">
             <ProgressRing percent={progressPercent} />
-          </div>
-
-          {/* Stat chips */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="flex flex-col items-center gap-1 rounded-xl border border-border/60 bg-card/60 py-2.5">
-              <Flame className="h-4 w-4 text-streak" />
-              <span className="font-display text-sm font-bold text-foreground">{currentQuest.streak}d</span>
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground">Streak</span>
-            </div>
-            <div className="flex flex-col items-center gap-1 rounded-xl border border-border/60 bg-card/60 py-2.5">
-              <Star className="h-4 w-4 text-primary" />
-              <span className="font-display text-sm font-bold text-foreground">{completedCount}/{tasks.length}</span>
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground">Tasks</span>
-            </div>
-            <div className="flex flex-col items-center gap-1 rounded-xl border border-border/60 bg-card/60 py-2.5">
-              <Target className="h-4 w-4 text-quest" />
-              <span className="font-display text-sm font-bold text-foreground">{tasks.length - completedCount}</span>
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground">Left</span>
+            <div className="flex flex-col items-center gap-1.5">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{completedCount}</span> of {tasks.length} tasks done
+              </p>
+              {currentQuest.streak > 0 && (
+                <div className="flex items-center gap-1.5 text-streak">
+                  <Flame className="h-3.5 w-3.5" />
+                  <span className="text-xs font-semibold">{currentQuest.streak}-day streak</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Middle: milestone navigator (scrolls independently) */}
-        <div className="min-h-0 flex-1 overflow-y-auto border-t border-border/60 px-4 py-4">
-          <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        {/* Middle: milestone navigator — clean list, no redundant bars */}
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-border/60 px-4 py-5">
+          <p className="px-3 pb-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Milestones
           </p>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             {milestoneSections.map((ms, idx) => {
               const stat = milestoneStats[idx]!
               const isComplete = stat.total > 0 && stat.done === stat.total
@@ -284,53 +278,61 @@ export function QuestRoadmapScreen() {
                 <button
                   key={ms.id}
                   onClick={() => scrollToMilestone(ms.id)}
-                  className="group flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-secondary/60"
+                  className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    isActive ? "bg-secondary/50" : "hover:bg-secondary/40"
+                  }`}
                 >
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold ${
+                  {/* Status indicator */}
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {isComplete ? (
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                    ) : isActive ? (
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/60" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent" />
+                      </span>
+                    ) : (
+                      <Lock className="h-3 w-3 text-muted-foreground/40" />
+                    )}
+                  </span>
+
+                  <span
+                    className={`min-w-0 flex-1 truncate text-sm ${
                       isComplete
-                        ? "border-primary/40 bg-primary/15 text-primary"
+                        ? "text-muted-foreground"
                         : isActive
-                          ? "border-accent/40 bg-accent/15 text-accent"
-                          : "border-border/60 bg-secondary/40 text-muted-foreground"
+                          ? "font-medium text-foreground"
+                          : "text-muted-foreground/50"
                     }`}
                   >
-                    {isComplete ? <CheckCircle2 className="h-4 w-4" /> : ms.questNumber}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-foreground">
-                      {ms.title.trim() !== "" ? ms.title : `Milestone ${ms.questNumber}`}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className={`h-full rounded-full transition-all ${isActive ? "bg-accent" : "bg-primary"}`}
-                          style={{ width: `${stat.pct}%` }}
-                        />
-                      </div>
-                      <span className="text-[9px] tabular-nums text-muted-foreground">
-                        {stat.done}/{stat.total}
-                      </span>
-                    </div>
-                  </div>
+                    {ms.title.trim() !== "" ? ms.title : `Milestone ${ms.questNumber}`}
+                  </span>
+
+                  {/* Show the fraction only where it matters — the active milestone */}
+                  {isActive && (
+                    <span className="shrink-0 text-[10px] font-semibold tabular-nums text-accent">
+                      {stat.done}/{stat.total}
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* Bottom: action buttons */}
-        <div className="flex flex-col gap-2 border-t border-border/60 p-4">
+        {/* Bottom: actions — quiet, secondary to the path itself */}
+        <div className="flex items-center gap-2 border-t border-border/60 p-4">
           <button
             onClick={() => setScreen("first-task")}
-            className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-foreground transition-all hover:bg-secondary/50 active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
           >
             <Plus className="h-4 w-4 text-primary" />
             Add task
           </button>
+          <span className="h-5 w-px bg-border/60" />
           <button
             onClick={() => setScreen("add-habit-entry")}
-            className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-foreground transition-all hover:bg-secondary/50 active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
           >
             <Repeat className="h-4 w-4 text-accent" />
             Add habit
@@ -340,22 +342,6 @@ export function QuestRoadmapScreen() {
 
       {/* ───────── Roadmap path lane ───────── */}
       <main className="relative min-w-0 flex-1">
-        {/* Desktop legend strip above the lane */}
-        <div className="hidden items-center justify-center gap-5 border-b border-border/40 px-6 py-4 lg:flex">
-          <div className="flex items-center gap-1.5">
-            <span className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-primary bg-primary/15" />
-            <span className="text-[10px] font-medium text-muted-foreground">Done</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-primary bg-primary" />
-            <span className="text-[10px] font-medium text-muted-foreground">Active</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-border/50 bg-secondary/40" />
-            <span className="text-[10px] font-medium text-muted-foreground">Locked</span>
-          </div>
-        </div>
-
         <div className="relative mx-auto w-full max-w-md overflow-x-hidden px-4 pb-32 pt-8 lg:pb-16 lg:pt-12">
           {/* SVG path connectors rendered behind nodes */}
           <svg
