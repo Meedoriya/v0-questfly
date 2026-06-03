@@ -4,9 +4,10 @@ import { useState, useCallback, useRef, useEffect, type ReactNode } from "react"
 import { AppContext, initialState, type AppState } from "@/lib/store"
 import { hydrateCampaignState } from "@/lib/hydrate-campaign"
 import { resolveInitialSessionFromCampaigns } from "@/lib/resolve-initial-session"
-import { completeRoutine, uncompleteRoutine } from "@/lib/api/routines"
+import { completeRoutine, uncompleteRoutine, updateRoutine, deleteRoutine } from "@/lib/api/routines"
 import { getUserCharacter } from "@/lib/api/character"
 import { fetchDailyHabitsMapped } from "@/lib/mappers/routine-mapper"
+import { habitDraftToCreateRoutine } from "@/lib/mappers/habit-form-to-routine"
 import { patchUserProgressFromCharacterGet } from "@/lib/mappers/character-mapper"
 import { todayISODate } from "@/lib/date-iso"
 import type { Screen, Quest, Task, ChatMessage, Habit, JointQuest } from "@/lib/types"
@@ -256,6 +257,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pendingHabit: habit }))
   }, [])
 
+  const setEditingHabit = useCallback((habit: Habit | null) => {
+    setState((s) => ({ ...s, editingHabit: habit }))
+  }, [])
+
+  /** Сохранить правки привычки: UUID → PATCH /routines, локальный черновик → стейт. */
+  const updateHabitOnApi = useCallback(
+    async (id: string, habit: Habit): Promise<boolean> => {
+      if (ROUTINE_ID_RE.test(id)) {
+        try {
+          await updateRoutine(id, habitDraftToCreateRoutine(habit))
+        } catch {
+          return false
+        }
+        refreshHabitsFromApi()
+        return true
+      }
+      setState((s) => ({
+        ...s,
+        habits: s.habits.map((h) => (h.id === id ? { ...habit, id } : h)),
+      }))
+      return true
+    },
+    [refreshHabitsFromApi],
+  )
+
+  /** Удалить привычку: UUID → DELETE /routines, локальный черновик → стейт. */
+  const deleteHabitOnApi = useCallback(async (id: string): Promise<boolean> => {
+    if (ROUTINE_ID_RE.test(id)) {
+      try {
+        await deleteRoutine(id)
+      } catch {
+        return false
+      }
+    }
+    setState((s) => ({ ...s, habits: s.habits.filter((h) => h.id !== id) }))
+    return true
+  }, [])
+
   const setCurrentJointQuest = useCallback((quest: JointQuest | null) => {
     setState((s) => ({ ...s, currentJointQuest: quest }))
   }, [])
@@ -296,6 +335,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         refreshHabitsFromApi,
         refreshCharacterFromApi,
         setPendingHabit,
+        setEditingHabit,
+        updateHabitOnApi,
+        deleteHabitOnApi,
         setCurrentJointQuest,
         addJointQuest,
         setLastImpactValue,

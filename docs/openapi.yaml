@@ -683,6 +683,31 @@ paths:
         "500":
           $ref: "#/components/responses/HttpxError"
 
+  /api/v1/routines/ai-suggest:
+    post:
+      operationId: postRoutineAiSuggest
+      tags: [routines]
+      summary: AI-подсказки привычек по описанию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiSuggestRoutinesRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpxSuccess_AiSuggestRoutinesResponse"
+        "400":
+          $ref: "#/components/responses/HttpxError"
+        "401":
+          $ref: "#/components/responses/HttpxError"
+        "500":
+          $ref: "#/components/responses/HttpxError"
+
   /api/v1/routines/daily:
     get:
       operationId: getRoutinesDaily
@@ -1710,6 +1735,26 @@ components:
           items:
             type: integer
           description: 0=воскресенье .. 6=суббота (домен)
+        characteristic:
+          type: string
+          nullable: true
+          enum: [health, appearance, environment, finance, career, growth, love, family, friends, creativity, lifestyle, spirituality]
+          description: Ось жизни (Life Radar). Неизвестное значение → 400.
+        time_of_day:
+          type: string
+          nullable: true
+          description: Время напоминания "HH:MM"
+        reminder_enabled:
+          type: boolean
+        reset_on_skip:
+          type: boolean
+          description: Политика стрика; дефолт true
+        campaign_id:
+          type: string
+          nullable: true
+        quest_id:
+          type: string
+          nullable: true
 
     UpdateRoutineRequest:
       type: object
@@ -1736,6 +1781,23 @@ components:
             type: integer
         active:
           type: boolean
+        characteristic:
+          type: string
+          nullable: true
+          enum: [health, appearance, environment, finance, career, growth, love, family, friends, creativity, lifestyle, spirituality]
+        time_of_day:
+          type: string
+          nullable: true
+        reminder_enabled:
+          type: boolean
+        reset_on_skip:
+          type: boolean
+        campaign_id:
+          type: string
+          nullable: true
+        quest_id:
+          type: string
+          nullable: true
 
     RoutineData:
       type: object
@@ -1781,6 +1843,23 @@ components:
           type: integer
         longest_streak:
           type: integer
+        characteristic:
+          type: string
+          nullable: true
+          enum: [health, appearance, environment, finance, career, growth, love, family, friends, creativity, lifestyle, spirituality]
+        time_of_day:
+          type: string
+          nullable: true
+        reminder_enabled:
+          type: boolean
+        reset_on_skip:
+          type: boolean
+        campaign_id:
+          type: string
+          nullable: true
+        quest_id:
+          type: string
+          nullable: true
         last_completed_date:
           type: string
           format: date
@@ -1800,6 +1879,33 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/RoutineData"
+
+    AiSuggestRoutinesRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          description: Свободное описание желаемой привычки
+
+    AiSuggestRoutinesResponse:
+      type: object
+      required: [suggestions]
+      properties:
+        suggestions:
+          type: array
+          description: До 3 черновиков привычек (форма RoutineData)
+          items:
+            $ref: "#/components/schemas/RoutineData"
+
+    HttpxSuccess_AiSuggestRoutinesResponse:
+      allOf:
+        - $ref: "#/components/schemas/HttpxWrapperTrue"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/AiSuggestRoutinesResponse"
 
     RoutineDetailResponse:
       type: object

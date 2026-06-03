@@ -60,13 +60,20 @@ export interface Habit {
   icon: string
   /** Эмодзи с бэка (рутины); в списке приоритетнее иконки Lucide. */
   emoji?: string
+  /** Ось жизни (AxisKey-словарь, см. lib/axes.ts); бэк принимает только эти ключи. */
   characteristic: string
   frequency: "every-day" | "specific-days" | "x-times-week"
   frequencyDays?: string[]
   frequencyCount?: number
   timeOfDay?: string
+  /** Включено ли напоминание (поле reminder_enabled). */
+  reminderEnabled?: boolean
   resetOnSkip: boolean
   linkedQuestId?: string
+  /** Опциональные поля routine (пока без инпутов в форме — шлются дефолты). */
+  notes?: string
+  durationMinutes?: number
+  xpReward?: number
 }
 
 export interface StreakSummary {

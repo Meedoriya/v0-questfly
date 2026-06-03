@@ -31,6 +31,7 @@ export function routineDailyRowToHabit(row: {
   const freq = mapRepeatTypeToFrequency(repeat)
   const days = mapDaysOfWeekToLabels(r.days_of_week)
   const tw = num(r.times_per_week, 0)
+  const timeOfDay = str(r.time_of_day, "") || undefined
 
   return {
     id: str(r.id),
@@ -39,11 +40,50 @@ export function routineDailyRowToHabit(row: {
     streak: num(r.current_streak, 0),
     icon: "briefcase",
     emoji: str(r.emoji, "") || undefined,
-    characteristic: repeat,
+    // ось жизни с бэка (раньше сюда ошибочно писался repeat_type).
+    characteristic: str(r.characteristic, ""),
     frequency: freq,
     frequencyDays: freq === "specific-days" ? days : undefined,
     frequencyCount: freq === "x-times-week" && tw > 0 ? tw : undefined,
-    resetOnSkip: true,
+    timeOfDay,
+    reminderEnabled: r.reminder_enabled === true,
+    resetOnSkip: r.reset_on_skip !== false,
+    notes: str(r.notes, "") || undefined,
+    durationMinutes: num(r.duration_minutes, 0) || undefined,
+    xpReward: num(r.xp_reward, 0) || undefined,
+    linkedQuestId: str(r.quest_id, "") || undefined,
+  }
+}
+
+/**
+ * AI-подсказка (сырой routine-черновик с бэка) → локальный черновик Habit.
+ * `id` синтетический (`h-…`), чтобы handleDone в confirmation ушёл по пути createRoutine.
+ */
+export function aiSuggestionToHabitDraft(raw: unknown, index = 0): Habit {
+  const r = asRecord(raw) || {}
+  const repeat = str(r.repeat_type, "daily")
+  const freq = mapRepeatTypeToFrequency(repeat)
+  const days = mapDaysOfWeekToLabels(r.days_of_week)
+  const tw = num(r.times_per_week, 0)
+  const timeOfDay = str(r.time_of_day, "") || undefined
+
+  return {
+    id: `h-${Date.now()}-${index}`,
+    title: str(r.title),
+    completed: false,
+    streak: 0,
+    icon: "heart",
+    emoji: str(r.emoji, "") || undefined,
+    characteristic: str(r.characteristic, ""),
+    frequency: freq,
+    frequencyDays: freq === "specific-days" ? days : undefined,
+    frequencyCount: freq === "x-times-week" && tw > 0 ? tw : undefined,
+    timeOfDay,
+    reminderEnabled: r.reminder_enabled === true || Boolean(timeOfDay),
+    resetOnSkip: r.reset_on_skip !== false,
+    notes: str(r.notes, "") || undefined,
+    durationMinutes: num(r.duration_minutes, 0) || undefined,
+    xpReward: num(r.xp_reward, 0) || undefined,
   }
 }
 

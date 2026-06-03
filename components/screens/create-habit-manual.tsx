@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useApp } from "@/lib/store"
+import { AXES } from "@/lib/axes"
 import type { Habit } from "@/lib/types"
 import {
   ArrowLeft,
@@ -25,6 +26,7 @@ import {
   Moon,
   Sun,
   Check,
+  Trash2,
 } from "lucide-react"
 
 const ICONS = [
@@ -46,7 +48,6 @@ const ICONS = [
   { id: "bike", icon: Bike, label: "Cardio" },
 ]
 
-const CHARACTERISTICS = ["Strength", "Focus", "Creativity", "Discipline"]
 const FREQUENCIES = [
   { id: "every-day" as const, label: "Every day" },
   { id: "specific-days" as const, label: "Specific days" },
@@ -60,18 +61,30 @@ const TIME_SLOTS = [
 ]
 
 export function CreateHabitManualScreen() {
-  const { setScreen, setPendingHabit, quests } = useApp()
+  const { setScreen, setPendingHabit, pendingHabit, quests, editingHabit, setEditingHabit, updateHabitOnApi, deleteHabitOnApi } =
+    useApp()
 
-  const [name, setName] = useState("")
-  const [selectedIcon, setSelectedIcon] = useState("heart")
-  const [characteristic, setCharacteristic] = useState("Discipline")
-  const [frequency, setFrequency] = useState<"every-day" | "specific-days" | "x-times-week">("every-day")
-  const [selectedDays, setSelectedDays] = useState<string[]>([])
-  const [timesPerWeek, setTimesPerWeek] = useState(3)
-  const [timeOfDay, setTimeOfDay] = useState<string | undefined>(undefined)
+  const isEdit = !!editingHabit
+  // В create-режиме форму можно префиллить черновиком из AI (pendingHabit).
+  const source = editingHabit ?? pendingHabit
+
+  const [name, setName] = useState(source?.title ?? "")
+  const [selectedIcon, setSelectedIcon] = useState(source?.icon ?? "heart")
+  const [characteristic, setCharacteristic] = useState(source?.characteristic || "growth")
+  const [frequency, setFrequency] = useState<"every-day" | "specific-days" | "x-times-week">(
+    source?.frequency ?? "every-day",
+  )
+  const [selectedDays, setSelectedDays] = useState<string[]>(source?.frequencyDays ?? [])
+  const [timesPerWeek, setTimesPerWeek] = useState(source?.frequencyCount ?? 3)
+  const [timeOfDay, setTimeOfDay] = useState<string | undefined>(source?.timeOfDay)
   const [showLinkSheet, setShowLinkSheet] = useState(false)
-  const [linkedQuestId, setLinkedQuestId] = useState<string | undefined>(undefined)
-  const [resetOnSkip, setResetOnSkip] = useState(true)
+  const [linkedQuestId, setLinkedQuestId] = useState<string | undefined>(source?.linkedQuestId)
+  const [resetOnSkip, setResetOnSkip] = useState(source?.resetOnSkip ?? true)
+  const [notes, setNotes] = useState(source?.notes ?? "")
+  const [durationMinutes, setDurationMinutes] = useState(source?.durationMinutes ?? 15)
+  const [xpReward, setXpReward] = useState(source?.xpReward ?? 10)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const linkedQuest = quests.find((q) => q.id === linkedQuestId)
   const isRankLinked = linkedQuest?.mode === "Rank"
@@ -80,37 +93,85 @@ export function CreateHabitManualScreen() {
     setSelectedDays((d) => (d.includes(day) ? d.filter((x) => x !== day) : [...d, day]))
   }
 
+  const goBack = () => {
+    if (isEdit) {
+      setEditingHabit(null)
+      setScreen("home")
+    } else {
+      setScreen("add-habit-entry")
+    }
+  }
+
   const handleSave = () => {
-    if (!name.trim()) return
-    const habit: Habit = {
-      id: `h-${Date.now()}`,
+    if (!name.trim() || saving) return
+    const built: Habit = {
+      id: editingHabit?.id ?? `h-${Date.now()}`,
       title: name.trim(),
-      completed: false,
-      streak: 0,
+      completed: editingHabit?.completed ?? false,
+      streak: editingHabit?.streak ?? 0,
       icon: selectedIcon,
+      emoji: editingHabit?.emoji,
       characteristic,
       frequency,
       frequencyDays: frequency === "specific-days" ? selectedDays : undefined,
       frequencyCount: frequency === "x-times-week" ? timesPerWeek : undefined,
       timeOfDay,
+      // В edit это финальный шаг (без экрана напоминания) — выводим флаг из времени.
+      reminderEnabled: isEdit ? Boolean(timeOfDay) : source?.reminderEnabled,
       resetOnSkip: isRankLinked ? true : resetOnSkip,
       linkedQuestId,
+      notes: notes.trim() || undefined,
+      durationMinutes,
+      xpReward,
     }
-    setPendingHabit(habit)
-    setScreen("habit-notification")
+
+    if (!isEdit) {
+      setPendingHabit(built)
+      setScreen("habit-notification")
+      return
+    }
+
+    void (async () => {
+      setSaving(true)
+      setError(null)
+      const ok = await updateHabitOnApi(built.id, built)
+      if (ok) {
+        setEditingHabit(null)
+        setScreen("home")
+      } else {
+        setError("Couldn't save changes. Check your connection and try again.")
+        setSaving(false)
+      }
+    })()
+  }
+
+  const handleDelete = () => {
+    if (!editingHabit || saving) return
+    void (async () => {
+      setSaving(true)
+      setError(null)
+      const ok = await deleteHabitOnApi(editingHabit.id)
+      if (ok) {
+        setEditingHabit(null)
+        setScreen("home")
+      } else {
+        setError("Couldn't delete this habit. Check your connection and try again.")
+        setSaving(false)
+      }
+    })()
   }
 
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex items-center gap-3 px-4 pb-4 pt-12">
         <button
-          onClick={() => setScreen("add-habit-entry")}
+          onClick={goBack}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary"
           aria-label="Back"
         >
           <ArrowLeft className="h-4 w-4 text-foreground" />
         </button>
-        <h1 className="font-serif text-xl font-bold text-foreground">Create Habit</h1>
+        <h1 className="font-serif text-xl font-bold text-foreground">{isEdit ? "Edit Habit" : "Create Habit"}</h1>
       </header>
 
       <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 pb-32 pt-2">
@@ -155,17 +216,17 @@ export function CreateHabitManualScreen() {
         <div className="flex flex-col gap-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Characteristic</label>
           <div className="flex flex-wrap gap-2">
-            {CHARACTERISTICS.map((c) => (
+            {AXES.map((a) => (
               <button
-                key={c}
-                onClick={() => setCharacteristic(c)}
+                key={a.key}
+                onClick={() => setCharacteristic(a.key)}
                 className={`rounded-full border px-4 py-2 text-xs font-semibold transition-all ${
-                  characteristic === c
+                  characteristic === a.key
                     ? "border-primary bg-primary/15 text-primary"
                     : "border-border bg-card text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {c}
+                {a.label}
               </button>
             ))}
           </div>
@@ -327,17 +388,92 @@ export function CreateHabitManualScreen() {
             </button>
           </div>
         </div>
+
+        {/* Details */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes (optional)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Why this habit matters, how to do it…"
+            rows={2}
+            className="resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div className="flex gap-3">
+          {/* Duration */}
+          <div className="flex flex-1 flex-col gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duration</label>
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+              <button
+                onClick={() => setDurationMinutes((v) => Math.max(5, v - 5))}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary text-foreground"
+                aria-label="Decrease duration"
+              >
+                -
+              </button>
+              <span className="flex-1 text-center text-sm font-bold text-foreground">{durationMinutes}m</span>
+              <button
+                onClick={() => setDurationMinutes((v) => Math.min(240, v + 5))}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary text-foreground"
+                aria-label="Increase duration"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* XP reward */}
+          <div className="flex flex-1 flex-col gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">XP Reward</label>
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+              <button
+                onClick={() => setXpReward((v) => Math.max(5, v - 5))}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary text-foreground"
+                aria-label="Decrease XP"
+              >
+                -
+              </button>
+              <span className="flex-1 text-center text-sm font-bold text-foreground">{xpReward}</span>
+              <button
+                onClick={() => setXpReward((v) => Math.min(100, v + 5))}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary text-foreground"
+                aria-label="Increase XP"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Delete (edit only) */}
+        {isEdit && (
+          <button
+            onClick={handleDelete}
+            disabled={saving}
+            className="flex items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 py-3.5 text-sm font-semibold text-destructive transition-all hover:bg-destructive/10 active:scale-[0.98] disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Habit
+          </button>
+        )}
       </div>
 
       {/* Save Button */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 px-6 pb-8 pt-4 backdrop-blur-lg">
         <div className="mx-auto max-w-md">
+          {error && (
+            <p className="mb-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-center text-xs text-destructive">
+              {error}
+            </p>
+          )}
           <button
             onClick={handleSave}
-            disabled={!name.trim()}
+            disabled={!name.trim() || saving}
             className="w-full rounded-2xl bg-primary py-4 text-base font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100"
           >
-            Continue
+            {saving ? "Saving…" : isEdit ? "Save Changes" : "Continue"}
           </button>
         </div>
       </div>

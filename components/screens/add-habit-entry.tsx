@@ -8,7 +8,14 @@ import {
 } from "lucide-react"
 
 export function AddHabitEntryScreen() {
-  const { setScreen } = useApp()
+  const { setScreen, setEditingHabit, setPendingHabit } = useApp()
+
+  // Сбрасываем edit/draft, чтобы форма открылась пустой для нового создания.
+  const startManual = () => {
+    setEditingHabit(null)
+    setPendingHabit(null)
+    setScreen("create-habit-manual")
+  }
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -30,7 +37,7 @@ export function AddHabitEntryScreen() {
 
         {/* Create Manually */}
         <button
-          onClick={() => setScreen("create-habit-manual")}
+          onClick={startManual}
           className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left transition-all hover:border-primary/30 hover:bg-primary/5 active:scale-[0.98]"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">

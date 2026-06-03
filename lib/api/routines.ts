@@ -4,26 +4,34 @@ import { todayISODate } from "@/lib/date-iso"
 /** Сырой объект рутины с бэка (см. RoutineData в openapi). */
 export type RoutineData = Record<string, unknown>
 
-export interface CreateRoutinePayload {
+/** Поля routine, общие для create/update (кроме обязательных title/repeat_type). */
+interface RoutineFields {
   emoji?: string
-  title: string
   notes?: string
   duration_minutes?: number
   xp_reward?: number
-  repeat_type: "daily" | "weekly" | "custom" | "off"
   times_per_week?: number
   days_of_week?: number[]
+  /** Ось жизни (AxisKey); бэк принимает только 12 осей радара. */
+  characteristic?: string
+  /** Время напоминания "HH:MM" (null/undefined — без напоминания). */
+  time_of_day?: string | null
+  reminder_enabled?: boolean
+  /** Политика стрика; дефолт true. */
+  reset_on_skip?: boolean
+  /** Привязка к стори-лайну (миграция 008). */
+  campaign_id?: string | null
+  quest_id?: string | null
 }
 
-export interface UpdateRoutinePayload {
+export interface CreateRoutinePayload extends RoutineFields {
   title: string
   repeat_type: "daily" | "weekly" | "custom" | "off"
-  emoji?: string
-  notes?: string
-  duration_minutes?: number
-  xp_reward?: number
-  times_per_week?: number
-  days_of_week?: number[]
+}
+
+export interface UpdateRoutinePayload extends RoutineFields {
+  title: string
+  repeat_type: "daily" | "weekly" | "custom" | "off"
   active?: boolean
 }
 
@@ -79,5 +87,13 @@ export async function uncompleteRoutine(id: string, date?: string): Promise<{ ro
   const d = date ?? todayISODate()
   return apiRequest(`/api/v1/routines/${id}/uncomplete?date=${encodeURIComponent(d)}`, {
     method: "POST",
+  })
+}
+
+/** Сгенерировать AI-подсказки привычек по свободному описанию. */
+export async function aiSuggestRoutines(prompt: string): Promise<{ suggestions: RoutineData[] }> {
+  return apiRequest<{ suggestions: RoutineData[] }>("/api/v1/routines/ai-suggest", {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
   })
 }

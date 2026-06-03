@@ -39,7 +39,8 @@ export function HabitNotificationScreen() {
     if (pendingHabit) {
       setPendingHabit({
         ...pendingHabit,
-        timeOfDay: notificationsEnabled ? selectedTime : undefined,
+        timeOfDay: selectedTime,
+        reminderEnabled: notificationsEnabled,
       })
     }
     setScreen("habit-confirmation")
