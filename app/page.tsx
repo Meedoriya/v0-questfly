@@ -7,8 +7,8 @@ import { AuthScreen } from "@/components/screens/auth-screen"
 import { useApp } from "@/lib/store"
 import { Loader2 } from "lucide-react"
 
-/** Экраны-«хабы» рендерят собственный web-layout (сайдбар + широкая сетка). */
-const HUB_SCREENS = new Set(["home"])
+/** Экраны с собственным web-layout (сайдбар/rail + широкая сетка) — без центральной колонки. */
+const HUB_SCREENS = new Set(["home", "quest-roadmap"])
 
 function AuthedShell() {
   const { screen } = useApp()
