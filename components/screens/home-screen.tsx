@@ -613,6 +613,7 @@ function HomeTab() {
     toggleTaskStatus,
     toggleHabit,
     refreshHabitsFromApi,
+    setEditingHabit,
   } = useApp()
   const [showScheduleSheet, setShowScheduleSheet] = useState(false)
 
@@ -767,13 +768,17 @@ function HomeTab() {
                         <HabitIcon className={`h-4 w-4 ${habit.completed ? "text-primary" : "text-muted-foreground"}`} />
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
+                    <button
+                      onClick={() => { setEditingHabit(habit); setScreen("create-habit-manual") }}
+                      className="min-w-0 flex-1 text-left"
+                      aria-label={`Edit ${habit.title}`}
+                    >
                       <p className={`truncate text-sm font-medium ${habit.completed ? "text-primary/70 line-through" : "text-foreground"}`}>{habit.title}</p>
                       <div className="flex items-center gap-1 mt-0.5">
                         <Flame className="h-3 w-3 text-streak" />
                         <span className="text-[10px] font-bold text-streak">{habit.streak}d</span>
                       </div>
-                    </div>
+                    </button>
                     <button
                       onClick={() => toggleHabit(habit.id)}
                       className="group flex h-7 w-7 shrink-0 items-center justify-center"

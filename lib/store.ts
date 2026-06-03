@@ -26,6 +26,7 @@ export interface AppState {
   isPaused: boolean
   completedQuestId: string | null
   pendingHabit: Habit | null
+  editingHabit: Habit | null
   jointQuests: JointQuest[]
   currentJointQuest: JointQuest | null
   lastImpactValue: string
@@ -60,6 +61,9 @@ export interface AppActions {
   refreshHabitsFromApi: () => void
   refreshCharacterFromApi: () => void
   setPendingHabit: (habit: Habit | null) => void
+  setEditingHabit: (habit: Habit | null) => void
+  updateHabitOnApi: (id: string, habit: Habit) => Promise<boolean>
+  deleteHabitOnApi: (id: string) => Promise<boolean>
   setCurrentJointQuest: (quest: JointQuest | null) => void
   addJointQuest: (quest: JointQuest) => void
   setLastImpactValue: (value: string) => void
@@ -124,6 +128,7 @@ export const initialState: AppState = {
   isPaused: false,
   completedQuestId: null,
   pendingHabit: null,
+  editingHabit: null,
   jointQuests: [
     {
       id: "jq1",

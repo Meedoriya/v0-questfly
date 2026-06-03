@@ -1,7 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useApp } from "@/lib/store"
+import { aiSuggestRoutines } from "@/lib/api/routines"
+import { aiSuggestionToHabitDraft } from "@/lib/mappers/routine-mapper"
+import { axisLabel } from "@/lib/axes"
 import type { Habit } from "@/lib/types"
 import {
   ArrowLeft,
@@ -12,38 +15,8 @@ import {
   Flame,
   Shield,
   Check,
+  AlertCircle,
 } from "lucide-react"
-
-const AI_SUGGESTIONS = [
-  {
-    title: "Morning cold shower",
-    frequency: "every-day" as const,
-    characteristic: "Discipline",
-    icon: "shield",
-    timeOfDay: "06:30",
-  },
-  {
-    title: "Read 30 minutes before bed",
-    frequency: "every-day" as const,
-    characteristic: "Focus",
-    icon: "book",
-    timeOfDay: "21:30",
-  },
-  {
-    title: "Practice guitar for 20 min",
-    frequency: "specific-days" as const,
-    characteristic: "Creativity",
-    icon: "music",
-    frequencyDays: ["Mon", "Wed", "Fri"],
-  },
-  {
-    title: "Run 5K outdoor",
-    frequency: "x-times-week" as const,
-    characteristic: "Strength",
-    icon: "dumbbell",
-    frequencyCount: 3,
-  },
-]
 
 function getCharColor(_name: string) {
   return "text-primary bg-primary/10"
@@ -61,62 +34,57 @@ export function AskAiHabitScreen() {
 
   const [input, setInput] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [suggestion, setSuggestion] = useState<(typeof AI_SUGGESTIONS)[number] | null>(null)
+  const [suggestions, setSuggestions] = useState<Habit[]>([])
+  const [selectedIdx, setSelectedIdx] = useState(0)
+  const [error, setError] = useState<string | null>(null)
   const [showLinkSheet, setShowLinkSheet] = useState(false)
   const [linkedQuestId, setLinkedQuestId] = useState<string | undefined>(undefined)
 
   const generate = () => {
-    if (!input.trim()) return
-    setIsGenerating(true)
-    setSuggestion(null)
-    // Simulate AI generation
-    setTimeout(() => {
-      const idx = Math.floor(Math.random() * AI_SUGGESTIONS.length)
-      setSuggestion(AI_SUGGESTIONS[idx])
-      setIsGenerating(false)
-    }, 1500)
+    if (!input.trim() || isGenerating) return
+    void (async () => {
+      setIsGenerating(true)
+      setError(null)
+      setSuggestions([])
+      try {
+        const { suggestions: raw } = await aiSuggestRoutines(input.trim())
+        const drafts = (Array.isArray(raw) ? raw : [])
+          .slice(0, 3)
+          .map((s, i) => aiSuggestionToHabitDraft(s, i))
+          .filter((h) => h.title)
+        if (drafts.length === 0) {
+          setError("AI didn't return any suggestions. Try rephrasing your goal.")
+        } else {
+          setSuggestions(drafts)
+          setSelectedIdx(0)
+        }
+      } catch {
+        setError("Couldn't reach the AI service. Check your connection and try again.")
+      } finally {
+        setIsGenerating(false)
+      }
+    })()
+  }
+
+  const buildHabit = (base: Habit): Habit => {
+    const linkedQuest = quests.find((q) => q.id === linkedQuestId)
+    return {
+      ...base,
+      resetOnSkip: linkedQuest?.mode === "Rank" ? true : base.resetOnSkip,
+      linkedQuestId,
+    }
   }
 
   const handleConfirm = () => {
-    if (!suggestion) return
-    const linkedQuest = quests.find((q) => q.id === linkedQuestId)
-    const habit: Habit = {
-      id: `h-${Date.now()}`,
-      title: suggestion.title,
-      completed: false,
-      streak: 0,
-      icon: suggestion.icon,
-      characteristic: suggestion.characteristic,
-      frequency: suggestion.frequency,
-      frequencyDays: suggestion.frequencyDays,
-      frequencyCount: suggestion.frequencyCount,
-      timeOfDay: suggestion.timeOfDay,
-      resetOnSkip: linkedQuest?.mode === "Rank" ? true : true,
-      linkedQuestId,
-    }
-    setPendingHabit(habit)
+    const base = suggestions[selectedIdx]
+    if (!base) return
+    setPendingHabit(buildHabit(base))
     setScreen("habit-notification")
   }
 
   const handleEdit = () => {
-    // Navigate to manual form -- user can tweak from there
-    if (suggestion) {
-      const habit: Habit = {
-        id: `h-${Date.now()}`,
-        title: suggestion.title,
-        completed: false,
-        streak: 0,
-        icon: suggestion.icon,
-        characteristic: suggestion.characteristic,
-        frequency: suggestion.frequency,
-        frequencyDays: suggestion.frequencyDays,
-        frequencyCount: suggestion.frequencyCount,
-        timeOfDay: suggestion.timeOfDay,
-        resetOnSkip: true,
-        linkedQuestId,
-      }
-      setPendingHabit(habit)
-    }
+    const base = suggestions[selectedIdx]
+    if (base) setPendingHabit(buildHabit(base))
     setScreen("create-habit-manual")
   }
 
@@ -133,7 +101,7 @@ export function AskAiHabitScreen() {
         <h1 className="font-serif text-xl font-bold text-foreground">Ask AI</h1>
       </header>
 
-      <div className="flex flex-1 flex-col gap-6 px-6 pt-2">
+      <div className="flex flex-1 flex-col gap-6 px-6 pt-2 pb-10">
         {/* Input */}
         <div className="flex flex-col gap-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -169,36 +137,73 @@ export function AskAiHabitScreen() {
           </div>
         )}
 
-        {/* Suggestion Card */}
-        {suggestion && !isGenerating && (
+        {/* Error */}
+        {error && !isGenerating && (
+          <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
+
+        {/* Suggestions */}
+        {suggestions.length > 0 && !isGenerating && (
           <div className="animate-float-up flex flex-col gap-4">
-            <div className="rounded-2xl border border-primary/20 bg-card p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-accent" />
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-accent">AI Suggestion</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-accent" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-accent">
+                AI Suggestions
+              </span>
+            </div>
 
-              <h3 className="text-lg font-bold text-foreground">{suggestion.title}</h3>
+            <div className="flex flex-col gap-2.5">
+              {suggestions.map((s, i) => {
+                const isSelected = i === selectedIdx
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedIdx(i)}
+                    className={`rounded-2xl border p-4 text-left transition-all active:scale-[0.99] ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card hover:bg-secondary/40"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-base font-bold text-foreground">
+                        {s.emoji ? `${s.emoji} ` : ""}
+                        {s.title}
+                      </h3>
+                      {isSelected && (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
+                          <Check className="h-3 w-3 text-primary-foreground" />
+                        </span>
+                      )}
+                    </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${getCharColor(suggestion.characteristic)}`}>
-                  <Shield className="h-3 w-3" />
-                  {suggestion.characteristic}
-                </span>
-                <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-muted-foreground">
-                  {getFreqLabel(suggestion.frequency, suggestion.frequencyDays, suggestion.frequencyCount)}
-                </span>
-                {suggestion.timeOfDay && (
-                  <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-muted-foreground">
-                    {suggestion.timeOfDay}
-                  </span>
-                )}
-              </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {s.characteristic && (
+                        <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${getCharColor(s.characteristic)}`}>
+                          <Shield className="h-3 w-3" />
+                          {axisLabel(s.characteristic)}
+                        </span>
+                      )}
+                      <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-muted-foreground">
+                        {getFreqLabel(s.frequency, s.frequencyDays, s.frequencyCount)}
+                      </span>
+                      {s.reminderEnabled && s.timeOfDay && (
+                        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-muted-foreground">
+                          {s.timeOfDay}
+                        </span>
+                      )}
+                    </div>
 
-              <div className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Flame className="h-3 w-3 text-streak" />
-                <span>Streak starts at 0</span>
-              </div>
+                    <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Flame className="h-3 w-3 text-streak" />
+                      <span>Streak starts at 0</span>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
 
             {/* Link to Quest inline */}

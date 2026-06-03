@@ -57,6 +57,8 @@ function getFreqLabel(f: string, days?: string[], count?: number) {
 export function HabitConfirmationScreen() {
   const { setScreen, pendingHabit, addHabit, setPendingHabit, refreshHabitsFromApi } = useApp()
   const [showCheck, setShowCheck] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setShowCheck(true), 300)
@@ -69,20 +71,26 @@ export function HabitConfirmationScreen() {
   const charColors = getCharColor(pendingHabit.characteristic)
 
   const handleDone = () => {
-    void (async () => {
-      const isLocalDraft = pendingHabit.id.startsWith("h-")
-      if (isLocalDraft) {
-        try {
-          await createRoutine(habitDraftToCreateRoutine(pendingHabit))
-          setPendingHabit(null)
-          refreshHabitsFromApi()
-        } catch {
-          addHabit(pendingHabit)
-        }
-      } else {
-        addHabit(pendingHabit)
-      }
+    const isLocalDraft = pendingHabit.id.startsWith("h-")
+    // Уже сохранённая на бэке привычка — просто кладём в локальный список и выходим.
+    if (!isLocalDraft) {
+      addHabit(pendingHabit)
       setScreen("home")
+      return
+    }
+    void (async () => {
+      setSaving(true)
+      setError(null)
+      try {
+        await createRoutine(habitDraftToCreateRoutine(pendingHabit))
+        setPendingHabit(null)
+        refreshHabitsFromApi()
+        setScreen("home")
+      } catch {
+        // Не подменяем тихо локальным моком — показываем ошибку, даём повторить.
+        setError("Couldn't save your habit. Check your connection and try again.")
+        setSaving(false)
+      }
     })()
   }
 
@@ -126,7 +134,7 @@ export function HabitConfirmationScreen() {
             <span className="text-sm font-bold text-foreground">0</span>
             <span className="text-xs text-muted-foreground">day streak</span>
           </div>
-          {pendingHabit.timeOfDay && (
+          {pendingHabit.reminderEnabled && pendingHabit.timeOfDay && (
             <span className="rounded-full bg-card px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {pendingHabit.timeOfDay}
             </span>
@@ -142,12 +150,20 @@ export function HabitConfirmationScreen() {
         </div>
       </div>
 
+      {/* Error */}
+      {error && (
+        <p className="mt-6 w-full rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-center text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
       {/* Done Button */}
       <button
         onClick={handleDone}
-        className="mt-8 w-full rounded-2xl bg-primary py-4 text-base font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+        disabled={saving}
+        className="mt-8 w-full rounded-2xl bg-primary py-4 text-base font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
       >
-        Done
+        {saving ? "Saving…" : error ? "Try Again" : "Done"}
       </button>
 
       <button

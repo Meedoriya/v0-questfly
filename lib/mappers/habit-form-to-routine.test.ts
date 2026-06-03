@@ -41,4 +41,34 @@ describe("habitDraftToCreateRoutine", () => {
     const p = habitDraftToCreateRoutine(minimalHabit({ icon: "unknown-icon-id" }))
     expect(p.emoji).toBe("⭐")
   })
+
+  it("пробрасывает characteristic / reset_on_skip / quest_id", () => {
+    const p = habitDraftToCreateRoutine(
+      minimalHabit({ characteristic: "growth", resetOnSkip: false, linkedQuestId: "q-42" }),
+    )
+    expect(p.characteristic).toBe("growth")
+    expect(p.reset_on_skip).toBe(false)
+    expect(p.quest_id).toBe("q-42")
+  })
+
+  it("reminder включён → time_of_day сохраняется", () => {
+    const p = habitDraftToCreateRoutine(
+      minimalHabit({ timeOfDay: "07:00", reminderEnabled: true }),
+    )
+    expect(p.reminder_enabled).toBe(true)
+    expect(p.time_of_day).toBe("07:00")
+  })
+
+  it("reminder выключен → time_of_day = null", () => {
+    const p = habitDraftToCreateRoutine(
+      minimalHabit({ timeOfDay: "07:00", reminderEnabled: false }),
+    )
+    expect(p.reminder_enabled).toBe(false)
+    expect(p.time_of_day).toBeNull()
+  })
+
+  it("нет linkedQuestId → quest_id = null", () => {
+    const p = habitDraftToCreateRoutine(minimalHabit({ linkedQuestId: undefined }))
+    expect(p.quest_id).toBeNull()
+  })
 })
