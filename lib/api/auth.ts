@@ -1,5 +1,5 @@
 import { apiRequest } from "./client"
-import type { AuthResponse, SendOtpData } from "./types"
+import type { AuthResponse, MeResponse, SendOtpData } from "./types"
 
 export async function sendOtp(email: string): Promise<SendOtpData> {
   return apiRequest<SendOtpData>("/api/v1/auth/send-otp", {
@@ -30,8 +30,8 @@ export async function register(payload: {
   })
 }
 
-export async function getMe(): Promise<AuthResponse> {
-  return apiRequest<AuthResponse>("/api/v1/auth/me", {
+export async function getMe(): Promise<MeResponse> {
+  return apiRequest<MeResponse>("/api/v1/auth/me", {
     method: "GET",
   })
 }

@@ -11,7 +11,7 @@ import {
 } from "react"
 
 import { getMe } from "@/lib/api/auth"
-import type { AuthResponse, AuthSessionUser } from "@/lib/api/types"
+import type { AuthResponse, AuthSessionUser, MeResponse } from "@/lib/api/types"
 import { clearTokens, getAccessToken, getRefreshToken, persistAuthTokens } from "@/lib/api/tokens"
 
 export type AuthStatus = "loading" | "unauthenticated" | "authenticated"
@@ -25,12 +25,28 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function toSessionUser(r: AuthResponse): AuthSessionUser {
+function toSessionUserFromAuth(r: AuthResponse): AuthSessionUser {
   return {
     userId: r.user_id,
     email: r.email,
     name: r.name,
     character: r.character,
+  }
+}
+
+function toSessionUserFromMe(r: MeResponse): AuthSessionUser {
+  const c = r.character
+  return {
+    userId: r.user.user_id,
+    email: r.user.email,
+    name: r.user.name,
+    character: {
+      id: c.id,
+      name: c.name,
+      total_xp: c.total_xp,
+      level: c.level,
+      streak: c.streak,
+    },
   }
 }
 
@@ -46,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback((auth: AuthResponse) => {
     persistAuthTokens(auth)
-    setUser(toSessionUser(auth))
+    setUser(toSessionUserFromAuth(auth))
     setStatus("authenticated")
   }, [])
 
@@ -64,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const me = await getMe()
         if (cancelled) return
-        setUser(toSessionUser(me))
+        setUser(toSessionUserFromMe(me))
         setStatus("authenticated")
       } catch {
         if (cancelled) return
