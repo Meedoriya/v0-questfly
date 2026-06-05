@@ -925,7 +925,7 @@ function ProfileTab() {
         </div>
         <div className="rounded-xl border border-border bg-card p-4 text-center">
           <Calendar className="mx-auto h-5 w-5 text-quest" />
-          <p className="mt-1 text-xl font-bold text-foreground">14</p>
+          <p className="mt-1 text-xl font-bold text-foreground">{userProgress.activeDaysCount ?? 0}</p>
           <p className="text-[10px] text-muted-foreground">Active Days</p>
         </div>
       </div>

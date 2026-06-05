@@ -51,4 +51,79 @@ describe("patchUserProgressFromCharacterGet", () => {
     const next = patchUserProgressFromCharacterGet(prev, raw)
     expect(next.levelProgressPercent).toBe(33)
   })
+
+  it("читает level_progress/next_level_xp/current_level_name из формы /auth/me (внутри character)", () => {
+    const prev = minimalUserProgress()
+    const raw = {
+      character: {
+        total_xp: 100,
+        level: 2,
+        streak: 3,
+        level_progress: { progress_percent: 60 },
+        next_level_xp: 250,
+        current_level_name: "Hero",
+      },
+    }
+    const next = patchUserProgressFromCharacterGet(prev, raw)
+    expect(next.levelProgressPercent).toBe(60)
+    expect(next.nextLevelXp).toBe(250)
+    expect(next.currentLevelName).toBe("Hero")
+  })
+
+  it("парсит avatar_url, bio, active_days_count и week_activity", () => {
+    const prev = minimalUserProgress({ avatarUrl: "old", bio: "old", activeDaysCount: 1 })
+    const raw = {
+      character: {
+        total_xp: 0,
+        level: 1,
+        streak: 0,
+        avatar_url: "https://cdn/x.jpg?v=1",
+        bio: "I level up",
+        active_days_count: 47,
+        week_activity: [
+          { date: "2026-05-30", active: false },
+          { date: "2026-05-31", active: true },
+          { date: "2026-06-01", active: true },
+          { date: "2026-06-02", active: false },
+          { date: "2026-06-03", active: true },
+          { date: "2026-06-04", active: true },
+          { date: "2026-06-05", active: true },
+        ],
+      },
+    }
+    const next = patchUserProgressFromCharacterGet(prev, raw)
+    expect(next.avatarUrl).toBe("https://cdn/x.jpg?v=1")
+    expect(next.bio).toBe("I level up")
+    expect(next.activeDaysCount).toBe(47)
+    expect(next.weekActivity).toEqual([false, true, true, false, true, true, true])
+  })
+
+  it("различает null и отсутствие поля для avatar_url/bio", () => {
+    const prev = minimalUserProgress({ avatarUrl: "kept", bio: "kept" })
+    const rawWithNull = {
+      character: { total_xp: 0, level: 1, streak: 0, avatar_url: null, bio: null },
+    }
+    const next = patchUserProgressFromCharacterGet(prev, rawWithNull)
+    expect(next.avatarUrl).toBeNull()
+    expect(next.bio).toBeNull()
+
+    const rawMissing = { character: { total_xp: 0, level: 1, streak: 0 } }
+    const same = patchUserProgressFromCharacterGet(prev, rawMissing)
+    expect(same.avatarUrl).toBe("kept")
+    expect(same.bio).toBe("kept")
+  })
+
+  it("игнорирует week_activity если длина не 7", () => {
+    const prev = minimalUserProgress({ weekActivity: [true, true, true, true, true, true, true] })
+    const raw = {
+      character: {
+        total_xp: 0,
+        level: 1,
+        streak: 0,
+        week_activity: [{ date: "x", active: true }],
+      },
+    }
+    const next = patchUserProgressFromCharacterGet(prev, raw)
+    expect(next.weekActivity).toEqual(prev.weekActivity)
+  })
 })

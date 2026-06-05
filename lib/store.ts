@@ -92,7 +92,7 @@ export const initialState: AppState = {
     xp: 0,
     level: 1,
     megaStreak: 0,
-    weekActivity: [false, false, false, true, true, false, false],
+    weekActivity: [false, false, false, false, false, false, false],
     characteristics: [
       { key: "health", name: "Health", current: 14, max: 20, thisWeek: 5, lastWeek: 3 },
       { key: "appearance", name: "Appearance", current: 8, max: 20, thisWeek: 2, lastWeek: 3 },

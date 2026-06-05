@@ -207,6 +207,13 @@ export interface UserProgress {
   currentLevelName?: string
   /** Порог XP следующего уровня (поле next_level_xp ответа персонажа). */
   nextLevelXp?: number
+  /** Абсолютный URL аватара (?v=… для cache-bust) или null. */
+  avatarUrl?: string | null
+  /** Биография персонажа, ≤500 chars или null. */
+  bio?: string | null
+  /** Сколько всего дней с активностью (для блока "Active Days"). */
+  activeDaysCount?: number
+  /** Активность по дням последней недели (всегда 7 элементов: 6 дней назад → сегодня UTC). */
   weekActivity: boolean[]
   characteristics: Characteristic[]
   friends: FriendActivity[]
