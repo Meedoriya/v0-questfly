@@ -187,6 +187,14 @@ export interface Characteristic {
   lastWeek: number
 }
 
+/** Один день GitHub-style heatmap. `intensity` бакетизуется на бэке (0–4). */
+export interface ActivityDay {
+  /** ISO date `YYYY-MM-DD` (UTC). */
+  date: string
+  count: number
+  intensity: 0 | 1 | 2 | 3 | 4
+}
+
 export interface FriendActivity {
   id: string
   name: string

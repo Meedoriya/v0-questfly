@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useApp } from "@/lib/store"
-import type { Characteristic, FriendActivity, AxisKey, Quest } from "@/lib/types"
+import type { ActivityDay, Characteristic, FriendActivity, AxisKey, Quest } from "@/lib/types"
+import { useActivity } from "@/hooks/use-activity"
 import { listCampaigns, getCampaign } from "@/lib/api/campaigns"
 import { asRecord, str } from "@/lib/api/json-helpers"
 import { mapGetCampaignResponse } from "@/lib/mappers/campaign-mapper"
@@ -230,36 +231,17 @@ function TaskCard({
 /* ---------- GitHub-style heatmap ---------- */
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-function generateGitHubHeatmap() {
-  const data: number[] = []
-  const today = new Date()
-  for (let i = 364; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const dayOfWeek = d.getDay()
-    // Simulate more activity recently and on weekdays
-    const recentBias = i < 60 ? 0.6 : i < 180 ? 0.4 : 0.25
-    const weekdayBias = dayOfWeek > 0 && dayOfWeek < 6 ? 1.2 : 0.7
-    const rand = Math.random()
-    if (rand < recentBias * weekdayBias) {
-      data.push(Math.min(4, Math.floor(rand * weekdayBias * 8) + 1))
-    } else {
-      data.push(0)
-    }
-  }
-  return data
-}
+const HEATMAP_DAYS = 365
 
 function getMonthStarts() {
   const today = new Date()
   const starts: { label: string; weekIdx: number }[] = []
   let lastMonth = -1
-  for (let i = 364; i >= 0; i--) {
+  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
     const m = d.getMonth()
-    const weekIdx = Math.floor((364 - i) / 7)
+    const weekIdx = Math.floor((HEATMAP_DAYS - 1 - i) / 7)
     if (m !== lastMonth) {
       starts.push({ label: MONTH_LABELS[m], weekIdx })
       lastMonth = m
@@ -268,10 +250,29 @@ function getMonthStarts() {
   return starts
 }
 
+/**
+ * Превращает массив дней с бэка в плотный массив intensity длины 365,
+ * упорядоченный от самого старого (индекс 0) к сегодня (индекс 364).
+ * Пропущенные даты заполняем нулями, чтобы сетка не съезжала.
+ */
+function buildHeatmapData(days: ActivityDay[]): number[] {
+  const byDate = new Map(days.map((d) => [d.date, d.intensity]))
+  const today = new Date()
+  const result: number[] = []
+  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const iso = d.toISOString().slice(0, 10)
+    result.push(byDate.get(iso) ?? 0)
+  }
+  return result
+}
+
 function GitHubHeatmap() {
-  const data = useMemo(() => generateGitHubHeatmap(), [])
+  const { days, loading } = useActivity()
+  const data = useMemo(() => buildHeatmapData(days), [days])
   const monthStarts = useMemo(() => getMonthStarts(), [])
-  const totalWeeks = Math.ceil(365 / 7)
+  const totalWeeks = Math.ceil(HEATMAP_DAYS / 7)
 
   // Build 7 rows x totalWeeks columns grid
   const grid: number[][] = Array.from({ length: 7 }, () => [])
@@ -290,12 +291,14 @@ function GitHubHeatmap() {
     "bg-primary",                       // 4: max
   ]
 
-  const totalContributions = data.filter((v) => v > 0).length
+  const totalContributions = days.reduce((acc, d) => acc + (d.count > 0 ? 1 : 0), 0)
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{totalContributions} contributions in the last year</span>
+        <span className="text-xs text-muted-foreground">
+          {loading ? "Loading activity…" : `${totalContributions} contributions in the last year`}
+        </span>
       </div>
 
       {/* Month labels */}
