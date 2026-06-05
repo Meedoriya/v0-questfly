@@ -6,9 +6,11 @@ import { hydrateCampaignState } from "@/lib/hydrate-campaign"
 import { resolveInitialSessionFromCampaigns } from "@/lib/resolve-initial-session"
 import { completeRoutine, uncompleteRoutine, updateRoutine, deleteRoutine } from "@/lib/api/routines"
 import { getUserCharacter } from "@/lib/api/character"
+import { getFriends } from "@/lib/api/friends"
 import { fetchDailyHabitsMapped } from "@/lib/mappers/routine-mapper"
 import { habitDraftToCreateRoutine } from "@/lib/mappers/habit-form-to-routine"
 import { patchUserProgressFromCharacterGet } from "@/lib/mappers/character-mapper"
+import { mapFriendsResponse } from "@/lib/mappers/friend-mapper"
 import { todayISODate } from "@/lib/date-iso"
 import type { Screen, Quest, Task, ChatMessage, Habit, JointQuest } from "@/lib/types"
 
@@ -32,6 +34,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (cancelled) return
       setState((s) => ({ ...s, ...patch, bootstrapComplete: true }))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const raw = await getFriends()
+        if (cancelled) return
+        const friends = mapFriendsResponse(raw)
+        setState((s) => ({ ...s, userProgress: { ...s.userProgress, friends } }))
+      } catch {
+        /* сеть / 401 / 404 — оставляем пустой список */
+      }
     })()
     return () => {
       cancelled = true

@@ -31,6 +31,7 @@ export type Screen =
   | "collab-quest-failure"
   | "collab-celebration"
   | "collab-final-results"
+  | "edit-profile"
 
 export interface Task {
   id: string
@@ -195,14 +196,31 @@ export interface ActivityDay {
   intensity: 0 | 1 | 2 | 3 | 4
 }
 
+/**
+ * Тип события в ленте друзей. Бэк отдаёт enum + payload — фронт сам рендерит
+ * человекочитаемый текст (см. profile_endpoints_integration.md, friend_events).
+ */
+export type FriendActionKind =
+  | "completed_quest"
+  | "leveled_up"
+  | "started_quest"
+  | "streak_milestone"
+
 export interface FriendActivity {
+  /** ID друга (user_id). */
   id: string
   name: string
-  avatar: string
-  action: string
-  questLabel: string
-  characteristic: string
-  timeAgo: string
+  /** Абсолютный URL аватара или null — фронт фолбэчит на инициалы. */
+  avatarUrl: string | null
+  kind: FriendActionKind
+  /** Свободный bag с деталями события: quest_id, quest_title и т.п. */
+  payload: Record<string, unknown>
+  /** Снапшот названия квеста на момент события (квест может быть переименован/удалён). */
+  questLabel: string | null
+  /** Ключ характеристики или null. */
+  characteristic: string | null
+  /** ISO timestamp события. */
+  happenedAt: string
 }
 
 export interface UserProgress {

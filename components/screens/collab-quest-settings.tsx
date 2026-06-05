@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useApp } from "@/lib/store"
+import { getInitial } from "@/lib/friend-feed"
 import {
   ArrowLeft,
   Users,
@@ -14,22 +15,16 @@ import {
   Shield,
 } from "lucide-react"
 
-const DEMO_FRIENDS = [
-  { id: "f1", name: "Alex", avatar: "A", level: 8 },
-  { id: "f2", name: "Maya", avatar: "M", level: 12 },
-  { id: "f3", name: "Sam", avatar: "S", level: 6 },
-  { id: "f4", name: "Jordan", avatar: "J", level: 10 },
-]
-
 export function CollabQuestSettingsScreen() {
-  const { setScreen, currentQuest } = useApp()
+  const { setScreen, currentQuest, userProgress } = useApp()
   const [isJoint, setIsJoint] = useState(false)
   const [search, setSearch] = useState("")
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null)
 
-  const filteredFriends = DEMO_FRIENDS.filter((f) =>
+  const filteredFriends = userProgress.friends.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase())
   )
+  const selectedFriendData = userProgress.friends.find((f) => f.id === selectedFriend)
 
   const questTitle = currentQuest?.title || "New Quest"
   const isRank = currentQuest?.mode === "Rank"
@@ -114,35 +109,51 @@ export function CollabQuestSettingsScreen() {
             </div>
 
             <div className="flex flex-col gap-2">
-              {filteredFriends.map((friend) => {
-                const isSelected = selectedFriend === friend.id
-                return (
-                  <button
-                    key={friend.id}
-                    onClick={() => setSelectedFriend(isSelected ? null : friend.id)}
-                    className={`flex items-center gap-3 rounded-xl border p-4 transition-all ${
-                      isSelected
-                        ? "border-primary bg-primary/5"
-                        : "border-border bg-card hover:bg-secondary/50"
-                    }`}
-                  >
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                      isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
-                    }`}>
-                      {friend.avatar}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-semibold text-foreground">{friend.name}</p>
-                      <p className="text-xs text-muted-foreground">Level {friend.level}</p>
-                    </div>
-                    {isSelected ? (
-                      <CheckCircle2 className="h-5 w-5 text-primary" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-                )
-              })}
+              {filteredFriends.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center">
+                  <Users className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">
+                    {userProgress.friends.length === 0 ? "No friends yet" : "No matches"}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground/70">
+                    Friends appear here after accepting a joint-quest invite
+                  </p>
+                </div>
+              ) : (
+                filteredFriends.map((friend) => {
+                  const isSelected = selectedFriend === friend.id
+                  return (
+                    <button
+                      key={friend.id}
+                      onClick={() => setSelectedFriend(isSelected ? null : friend.id)}
+                      className={`flex items-center gap-3 rounded-xl border p-4 transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-card hover:bg-secondary/50"
+                      }`}
+                    >
+                      <div className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${
+                        isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+                      }`}>
+                        {friend.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={friend.avatarUrl} alt={friend.name} className="h-full w-full object-cover" />
+                        ) : (
+                          getInitial(friend.name)
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-semibold text-foreground">{friend.name}</p>
+                      </div>
+                      {isSelected ? (
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  )
+                })
+              )}
             </div>
 
             {/* Selected preview */}
@@ -162,12 +173,15 @@ export function CollabQuestSettingsScreen() {
                     <Zap className="h-5 w-5 text-accent" />
                   </div>
                   <div className="flex-1 rounded-xl bg-card p-3 text-center">
-                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-quest/10 text-sm font-bold text-quest">
-                      {DEMO_FRIENDS.find((f) => f.id === selectedFriend)?.avatar}
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-quest/10 text-sm font-bold text-quest">
+                      {selectedFriendData?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={selectedFriendData.avatarUrl} alt={selectedFriendData.name} className="h-full w-full object-cover" />
+                      ) : (
+                        getInitial(selectedFriendData?.name ?? "")
+                      )}
                     </div>
-                    <p className="text-xs font-medium text-foreground">
-                      {DEMO_FRIENDS.find((f) => f.id === selectedFriend)?.name}
-                    </p>
+                    <p className="text-xs font-medium text-foreground">{selectedFriendData?.name}</p>
                     <p className="text-[10px] text-muted-foreground">AI Roadmap</p>
                   </div>
                 </div>

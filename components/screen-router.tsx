@@ -32,6 +32,7 @@ import { CollabFriendStatusScreen } from "@/components/screens/collab-friend-sta
 import { CollabQuestFailureScreen } from "@/components/screens/collab-quest-failure"
 import { CollabCelebrationScreen } from "@/components/screens/collab-celebration"
 import { CollabFinalResultsScreen } from "@/components/screens/collab-final-results"
+import { EditProfileScreen } from "@/components/screens/edit-profile"
 
 const QUEST_GATE_SCREENS = new Set(["quest-roadmap", "home", "quest-activity", "first-task"])
 
@@ -116,6 +117,8 @@ export function ScreenRouter() {
       return <CollabCelebrationScreen />
     case "collab-final-results":
       return <CollabFinalResultsScreen />
+    case "edit-profile":
+      return <EditProfileScreen />
     default:
       return <GoalInputScreen />
   }

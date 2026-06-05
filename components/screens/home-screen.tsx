@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth-provider"
 import { useApp } from "@/lib/store"
 import type { ActivityDay, Characteristic, FriendActivity, AxisKey, Quest } from "@/lib/types"
 import { useActivity } from "@/hooks/use-activity"
+import { formatFriendAction, formatTimeAgo, getInitial } from "@/lib/friend-feed"
 import { listCampaigns, getCampaign } from "@/lib/api/campaigns"
 import { asRecord, str } from "@/lib/api/json-helpers"
 import { mapGetCampaignResponse } from "@/lib/mappers/campaign-mapper"
@@ -48,6 +49,7 @@ import {
   Crown,
   MessageCircle,
   LogOut,
+  Pencil,
 } from "lucide-react"
 
 /* ---------- helpers ---------- */
@@ -74,22 +76,33 @@ const ICON_BG = ["bg-primary/10", "bg-accent/10", "bg-quest/10", "bg-streak/10"]
 
 function SocialFeedCard({ friend }: { friend: FriendActivity }) {
   const [reacted, setReacted] = useState(false)
+  const action = formatFriendAction(friend)
+  const timeAgo = formatTimeAgo(friend.happenedAt)
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
-          {friend.avatar}
+        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-accent/15 text-sm font-bold text-accent">
+          {friend.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={friend.avatarUrl} alt={friend.name} className="h-full w-full object-cover" />
+          ) : (
+            getInitial(friend.name)
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{friend.name}</p>
-          <p className="text-[10px] text-muted-foreground">{friend.timeAgo}</p>
+          <p className="text-[10px] text-muted-foreground">{timeAgo}</p>
         </div>
       </div>
-      <p className="text-sm leading-relaxed text-secondary-foreground">{friend.action}</p>
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-medium text-muted-foreground">{friend.questLabel}</span>
-        <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">{friend.characteristic}</span>
+      <p className="text-sm leading-relaxed text-secondary-foreground">{action}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {friend.questLabel && (
+          <span className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-medium text-muted-foreground">{friend.questLabel}</span>
+        )}
+        {friend.characteristic && (
+          <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">{friend.characteristic}</span>
+        )}
       </div>
       <button
         onClick={() => setReacted(true)}
@@ -572,12 +585,17 @@ function SocialTab() {
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {userProgress.friends.map((friend) => (
               <div key={friend.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
-                  {friend.avatar}
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-accent/15 text-sm font-bold text-accent">
+                  {friend.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={friend.avatarUrl} alt={friend.name} className="h-full w-full object-cover" />
+                  ) : (
+                    getInitial(friend.name)
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-foreground">{friend.name}</p>
-                  <p className="text-xs text-muted-foreground">{friend.questLabel}</p>
+                  <p className="text-xs text-muted-foreground">{friend.questLabel ?? formatFriendAction(friend)}</p>
                 </div>
                 <button className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-1.5 text-[10px] font-semibold text-accent transition-colors hover:bg-accent/10">
                   Challenge
@@ -858,12 +876,14 @@ function profileInitials(displayName: string): string {
 
 function ProfileTab() {
   const { user } = useAuth()
-  const { userProgress, quests, habits } = useApp()
+  const { userProgress, quests, habits, setScreen } = useApp()
   const totalTasksDone = quests.reduce((acc, q) => acc + q.tasks.filter((t) => t.status === "done").length, 0)
   const totalQuests = quests.length
   const streak = userProgress.megaStreak
   const charName = user?.character.name?.trim() || "Adventurer"
   const levelPct = userProgress.levelProgressPercent
+  const avatarUrl = userProgress.avatarUrl
+  const bio = userProgress.bio?.trim() ?? ""
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-6 lg:px-10 lg:pt-8">
@@ -905,13 +925,27 @@ function ProfileTab() {
 
       {/* Avatar + Name */}
       <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-xl font-bold text-accent">
-          {profileInitials(charName)}
+        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-accent/15 text-xl font-bold text-accent">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt={charName} className="h-full w-full object-cover" />
+          ) : (
+            profileInitials(charName)
+          )}
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-foreground">{charName}</h2>
-          <p className="text-xs text-muted-foreground">{user?.email ?? ""}</p>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-lg font-bold text-foreground">{charName}</h2>
+          <p className="truncate text-xs text-muted-foreground">{user?.email ?? ""}</p>
+          {bio && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground/80">{bio}</p>}
         </div>
+        <button
+          type="button"
+          onClick={() => setScreen("edit-profile")}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
+          aria-label="Edit profile"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Quick Stats Grid */}

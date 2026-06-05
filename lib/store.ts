@@ -107,12 +107,7 @@ export const initialState: AppState = {
       { key: "lifestyle", name: "Lifestyle", current: 7, max: 20, thisWeek: 2, lastWeek: 1 },
       { key: "spirituality", name: "Spirituality", current: 5, max: 20, thisWeek: 1, lastWeek: 2 },
     ],
-    friends: [
-      { id: "f1", name: "Alex", avatar: "A", action: "Completed morning run", questLabel: "Get Fit", characteristic: "Strength", timeAgo: "12m ago" },
-      { id: "f2", name: "Maya", avatar: "M", action: "Read 30 pages", questLabel: "Read More", characteristic: "Focus", timeAgo: "1h ago" },
-      { id: "f3", name: "Sam", avatar: "S", action: "Wrote 500 words", questLabel: "Write Daily", characteristic: "Creativity", timeAgo: "2h ago" },
-      { id: "f4", name: "Jordan", avatar: "J", action: "Meditated 15 min", questLabel: "Mindfulness", characteristic: "Discipline", timeAgo: "3h ago" },
-    ],
+    friends: [],
   },
   earnedXp: 0,
   aiInsight: "",
