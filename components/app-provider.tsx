@@ -7,10 +7,12 @@ import { resolveInitialSessionFromCampaigns } from "@/lib/resolve-initial-sessio
 import { completeRoutine, uncompleteRoutine, updateRoutine, deleteRoutine } from "@/lib/api/routines"
 import { getUserCharacter } from "@/lib/api/character"
 import { getFriends } from "@/lib/api/friends"
+import { listJointQuests } from "@/lib/api/joint-quests"
 import { fetchDailyHabitsMapped } from "@/lib/mappers/routine-mapper"
 import { habitDraftToCreateRoutine } from "@/lib/mappers/habit-form-to-routine"
 import { patchUserProgressFromCharacterGet } from "@/lib/mappers/character-mapper"
 import { mapFriendsResponse } from "@/lib/mappers/friend-mapper"
+import { mapJointQuestsList } from "@/lib/mappers/joint-quest-mapper"
 import { todayISODate } from "@/lib/date-iso"
 import type { Screen, Quest, Task, ChatMessage, Habit, JointQuest } from "@/lib/types"
 
@@ -69,6 +71,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }))
       } catch {
         /* сеть / 401 — initial state остаётся zero-радаром */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const raw = await listJointQuests()
+        if (cancelled) return
+        setState((s) => ({ ...s, jointQuests: mapJointQuestsList(raw) }))
+      } catch {
+        /* сеть / 401 — список останется пустым */
       }
     })()
     return () => {
@@ -337,8 +355,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, currentJointQuest: quest }))
   }, [])
 
-  const addJointQuest = useCallback((quest: JointQuest) => {
-    setState((s) => ({ ...s, jointQuests: [...s.jointQuests, quest] }))
+  const setJointQuests = useCallback((quests: JointQuest[]) => {
+    setState((s) => ({ ...s, jointQuests: quests }))
+  }, [])
+
+  const upsertJointQuest = useCallback((quest: JointQuest) => {
+    setState((s) => {
+      const idx = s.jointQuests.findIndex((q) => q.id === quest.id)
+      const next = idx === -1 ? [...s.jointQuests, quest] : s.jointQuests.map((q) => (q.id === quest.id ? quest : q))
+      const currentJointQuest = s.currentJointQuest?.id === quest.id ? quest : s.currentJointQuest
+      return { ...s, jointQuests: next, currentJointQuest }
+    })
+  }, [])
+
+  const refreshJointQuestsFromApi = useCallback(() => {
+    void (async () => {
+      try {
+        const raw = await listJointQuests()
+        const quests = mapJointQuestsList(raw)
+        setState((s) => ({ ...s, jointQuests: quests }))
+      } catch {
+        /* офлайн / 401 — оставляем как есть */
+      }
+    })()
   }, [])
 
   const setLastImpactValue = useCallback((value: string) => {
@@ -377,7 +416,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateHabitOnApi,
         deleteHabitOnApi,
         setCurrentJointQuest,
-        addJointQuest,
+        setJointQuests,
+        upsertJointQuest,
+        refreshJointQuestsFromApi,
         setLastImpactValue,
       }}
     >

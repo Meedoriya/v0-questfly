@@ -113,6 +113,56 @@ export interface MeResponse {
   character: CharacterData
 }
 
+/* ----- Joint Quests (phase 6) ----- */
+
+export type ApiJointQuestStatus =
+  | "pending_accept"
+  | "active"
+  | "completed"
+  | "failed"
+  | "declined"
+
+export type ApiJointPlayerRole = "creator" | "invitee"
+
+/** Один игрок joint quest'а. До Finalize все скоринг-поля = 0. */
+export interface ApiJointPlayer {
+  user_id: string
+  role: ApiJointPlayerRole
+  accepted_at: string | null
+  progress: number
+  total_tasks: number
+  rank_points: number
+  rank_increase: number
+  longest_streak: number
+  failed_tasks: number
+  impact_score: number
+  roadmap_preview: string[]
+  /** Bool за сегодня UTC. Заполняется только на GET /{id}. */
+  completed_today: boolean
+  today_impact_value: string | null
+  /** Имя character'а игрока. Может быть пустой строкой до того как бэк дотащит поле. */
+  name?: string
+  /** Абсолютный URL аватара игрока или null. */
+  avatar_url?: string | null
+}
+
+/**
+ * Снапшот joint quest'а — единый контракт для всех 6 GET/POST эндпоинтов
+ * кроме encourage (тот 204 No Content). См. phase6_joint_quests_integration.md §2.
+ */
+export interface ApiJointQuest {
+  id: string
+  title: string
+  description: string
+  deadline: string
+  status: ApiJointQuestStatus
+  total_tasks: number
+  winner_user_id: string | null
+  completed_at: string | null
+  /** Длина 2 для нормального состояния, 1 для email-pending invitee. */
+  players: ApiJointPlayer[]
+}
+
 export interface SendOtpData {
   message: string
   email: string

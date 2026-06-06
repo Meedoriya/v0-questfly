@@ -6,6 +6,7 @@ import { useApp } from "@/lib/store"
 import type { Characteristic, FriendActivity, AxisKey, Quest } from "@/lib/types"
 import { ActivityHeatmap } from "@/components/activity-heatmap"
 import { formatFriendAction, formatTimeAgo, getInitial } from "@/lib/friend-feed"
+import { daysLeftFromDeadline, findOpponent, findPlayerByUserId } from "@/lib/joint-quest-utils"
 import { listCampaigns, getCampaign } from "@/lib/api/campaigns"
 import { asRecord, str } from "@/lib/api/json-helpers"
 import { mapGetCampaignResponse } from "@/lib/mappers/campaign-mapper"
@@ -316,6 +317,8 @@ function ProgressTab() {
 
 function SocialTab() {
   const { userProgress, jointQuests, setCurrentJointQuest, setScreen } = useApp()
+  const { user } = useAuth()
+  const meId = user?.userId ?? ""
   const [activeSection, setActiveSection] = useState<"feed" | "friends">("feed")
 
   return (
@@ -351,7 +354,13 @@ function SocialTab() {
               </div>
               <div className="flex flex-col gap-3">
                 {jointQuests.map((jq) => {
-                  const p1Leading = jq.player1.rankPoints >= jq.player2.rankPoints
+                  const me = findPlayerByUserId(jq, meId) ?? jq.players[0]
+                  const opp = findOpponent(jq, meId) ?? jq.players[1]
+                  if (!me || !opp) return null
+                  const meLeading = me.rankPoints >= opp.rankPoints
+                  const daysLeft = daysLeftFromDeadline(jq.deadline)
+                  const meName = me.name || "You"
+                  const oppName = opp.name || "Friend"
                   return (
                     <button
                       key={jq.id}
@@ -372,7 +381,7 @@ function SocialTab() {
                               <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-accent">Joint</span>
                               <div className="flex items-center gap-1">
                                 <Timer className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-[10px] text-muted-foreground">{jq.daysLeft}d left</span>
+                                <span className="text-[10px] text-muted-foreground">{Math.max(0, daysLeft)}d left</span>
                               </div>
                             </div>
                           </div>
@@ -383,22 +392,36 @@ function SocialTab() {
                       <div className="flex gap-4 mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">{jq.player1.avatar}</div>
-                            <span className="text-[10px] text-foreground">{jq.player1.name}</span>
-                            {p1Leading && <Crown className="h-3 w-3 text-accent" />}
+                            <div className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+                              {me.avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={me.avatarUrl} alt={meName} className="h-full w-full object-cover" />
+                              ) : (
+                                getInitial(meName)
+                              )}
+                            </div>
+                            <span className="text-[10px] text-foreground">{meName}</span>
+                            {meLeading && <Crown className="h-3 w-3 text-accent" />}
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(jq.player1.progress / jq.player1.totalTasks) * 100}%` }} />
+                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${me.totalTasks > 0 ? (me.progress / me.totalTasks) * 100 : 0}%` }} />
                           </div>
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-[9px] font-bold text-accent">{jq.player2.avatar}</div>
-                            <span className="text-[10px] text-foreground">{jq.player2.name}</span>
-                            {!p1Leading && <Crown className="h-3 w-3 text-accent" />}
+                            <div className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-accent/10 text-[9px] font-bold text-accent">
+                              {opp.avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={opp.avatarUrl} alt={oppName} className="h-full w-full object-cover" />
+                              ) : (
+                                getInitial(oppName)
+                              )}
+                            </div>
+                            <span className="text-[10px] text-foreground">{oppName}</span>
+                            {!meLeading && <Crown className="h-3 w-3 text-accent" />}
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(jq.player2.progress / jq.player2.totalTasks) * 100}%` }} />
+                            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${opp.totalTasks > 0 ? (opp.progress / opp.totalTasks) * 100 : 0}%` }} />
                           </div>
                         </div>
                       </div>
@@ -406,22 +429,22 @@ function SocialTab() {
                       <div className="flex items-center gap-4 rounded-xl bg-secondary/50 px-3 py-2">
                         <div className="flex items-center gap-1">
                           <Zap className="h-3 w-3 text-primary" />
-                          <span className="text-[10px] font-bold text-foreground">{jq.player1.rankPoints}</span>
+                          <span className="text-[10px] font-bold text-foreground">{me.rankPoints}</span>
                           <span className="text-[10px] text-muted-foreground">pts</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Flame className="h-3 w-3 text-streak" />
-                          <span className="text-[10px] font-bold text-streak">{jq.player1.streak}d</span>
+                          <span className="text-[10px] font-bold text-streak">{me.longestStreak}d</span>
                         </div>
                         <div className="mx-auto text-[10px] text-muted-foreground">vs</div>
                         <div className="flex items-center gap-1">
                           <Zap className="h-3 w-3 text-accent" />
-                          <span className="text-[10px] font-bold text-foreground">{jq.player2.rankPoints}</span>
+                          <span className="text-[10px] font-bold text-foreground">{opp.rankPoints}</span>
                           <span className="text-[10px] text-muted-foreground">pts</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Flame className="h-3 w-3 text-streak" />
-                          <span className="text-[10px] font-bold text-streak">{jq.player2.streak}d</span>
+                          <span className="text-[10px] font-bold text-streak">{opp.longestStreak}d</span>
                         </div>
                       </div>
                     </button>

@@ -131,28 +131,60 @@ export interface QuestDay {
   status: "completed" | "failed" | "rest" | "upcoming"
 }
 
-export interface CollabPlayer {
-  id: string
-  name: string
-  avatar: string
+export type JointQuestStatus =
+  | "pending_accept"
+  | "active"
+  | "completed"
+  | "failed"
+  | "declined"
+
+export type JointPlayerRole = "creator" | "invitee"
+
+/**
+ * Один игрок joint quest'а. Все скоринг-поля приходят готовыми с бэка —
+ * фронт ничего не считает. До перехода в terminal status (completed/failed)
+ * rank_points / rank_increase = 0.
+ */
+export interface JointPlayer {
+  userId: string
+  role: JointPlayerRole
+  acceptedAt: string | null
   progress: number
   totalTasks: number
   rankPoints: number
-  streak: number
+  rankIncrease: number
+  longestStreak: number
   failedTasks: number
   impactScore: number
+  /** AI-сгенерированный план шагов, длина == totalTasks. */
   roadmapPreview: string[]
+  /** Bool за сегодня UTC. Актуален только в ответе GET /{id}. */
+  completedToday: boolean
+  todayImpactValue: string | null
+  /** Имя персонажа игрока. Пустая строка пока бэк не дотащит — фолбэк UI на "Player". */
+  name: string
+  /** Абсолютный URL аватара или null — UI фолбэк на getInitial(name). */
+  avatarUrl: string | null
 }
 
+/**
+ * Joint quest snapshot. См. phase6_joint_quests_integration.md.
+ *
+ * - `deadline` — ISO `YYYY-MM-DD` UTC. `daysLeft` считается локально через
+ *   `daysLeftFromDeadline()` (см. `lib/joint-quest-utils.ts`).
+ * - `players` обычно длиной 2; для email-pending invitee — 1 (только creator).
+ * - `winnerUserId` != null только при `status === "completed"` и не tie.
+ */
 export interface JointQuest {
   id: string
   title: string
   description: string
   deadline: string
-  daysLeft: number
-  player1: CollabPlayer
-  player2: CollabPlayer
-  status: "active" | "completed" | "failed"
+  status: JointQuestStatus
+  totalTasks: number
+  winnerUserId: string | null
+  completedAt: string | null
+  players: JointPlayer[]
 }
 
 /** Вариант ответа: строка или пара value/label с бэка. */

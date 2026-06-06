@@ -66,7 +66,9 @@ export interface AppActions {
   updateHabitOnApi: (id: string, habit: Habit) => Promise<boolean>
   deleteHabitOnApi: (id: string) => Promise<boolean>
   setCurrentJointQuest: (quest: JointQuest | null) => void
-  addJointQuest: (quest: JointQuest) => void
+  setJointQuests: (quests: JointQuest[]) => void
+  upsertJointQuest: (quest: JointQuest) => void
+  refreshJointQuestsFromApi: () => void
   setLastImpactValue: (value: string) => void
 }
 
@@ -112,40 +114,7 @@ export const initialState: AppState = {
   completedQuestId: null,
   pendingHabit: null,
   editingHabit: null,
-  jointQuests: [
-    {
-      id: "jq1",
-      title: "Read 12 Books Together",
-      description: "Both players read independently and track pages daily.",
-      deadline: "Mar 30, 2026",
-      daysLeft: 44,
-      status: "active",
-      player1: {
-        id: "me",
-        name: "You",
-        avatar: "QF",
-        progress: 5,
-        totalTasks: 12,
-        rankPoints: 320,
-        streak: 7,
-        failedTasks: 1,
-        impactScore: 480,
-        roadmapPreview: ["Read Ch.1-3", "Summarize notes", "Quiz review", "Read Ch.4-6"],
-      },
-      player2: {
-        id: "f1",
-        name: "Alex",
-        avatar: "A",
-        progress: 4,
-        totalTasks: 12,
-        rankPoints: 280,
-        streak: 5,
-        failedTasks: 2,
-        impactScore: 390,
-        roadmapPreview: ["Read Ch.1-2", "Write reflection", "Read Ch.3-4", "Book discussion"],
-      },
-    },
-  ],
+  jointQuests: [],
   currentJointQuest: null,
   lastImpactValue: "",
   feedbackDraft: "",

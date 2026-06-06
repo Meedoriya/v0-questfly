@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useApp } from "@/lib/store"
+import { useAuth } from "@/components/auth-provider"
+import { findOpponent, findPlayerByUserId } from "@/lib/joint-quest-utils"
+import { getInitial } from "@/lib/friend-feed"
 import {
   Trophy,
   Zap,
@@ -33,6 +36,8 @@ function Confetti() {
 
 export function CollabCelebrationScreen() {
   const { setScreen, currentJointQuest } = useApp()
+  const { user } = useAuth()
+  const meId = user?.userId ?? ""
   const [showContent, setShowContent] = useState(false)
   const [showStats, setShowStats] = useState(false)
 
@@ -51,9 +56,19 @@ export function CollabCelebrationScreen() {
     )
   }
 
-  const p1 = quest.player1
-  const p2 = quest.player2
-  const p1Won = p1.rankPoints >= p2.rankPoints
+  const me = findPlayerByUserId(quest, meId) ?? quest.players[0]
+  const opp = findOpponent(quest, meId) ?? quest.players[1]
+  if (!me || !opp) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <p className="text-muted-foreground">Quest data is incomplete</p>
+      </div>
+    )
+  }
+  const meName = me.name || "You"
+  const oppName = opp.name || "Friend"
+  // Winner определяет бэк через quest.winnerUserId; tie → null.
+  const meWon = quest.winnerUserId !== null && quest.winnerUserId === me.userId
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
@@ -63,7 +78,7 @@ export function CollabCelebrationScreen() {
       <div className="flex items-center justify-center pt-16 pb-4">
         <div className="flex items-center gap-2 rounded-full bg-primary/15 px-5 py-2.5 animate-bounce-in animate-pulse-glow">
           <Zap className="h-5 w-5 text-primary" />
-          <span className="text-lg font-bold text-primary">+{p1.rankPoints + p2.rankPoints} Shared XP</span>
+          <span className="text-lg font-bold text-primary">+{me.rankPoints + opp.rankPoints} Shared XP</span>
         </div>
       </div>
 
@@ -80,62 +95,48 @@ export function CollabCelebrationScreen() {
         <div className="flex flex-col gap-5 px-6 pb-8 animate-float-up">
           {/* Side by side comparison */}
           <div className="flex gap-3">
-            {/* Player 1 */}
-            <div className={`flex-1 rounded-2xl border p-5 ${
-              p1Won ? "border-primary/30 bg-primary/5" : "border-border bg-card"
-            }`}>
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative">
-                  <div className={`flex h-14 w-14 items-center justify-center rounded-full text-base font-bold ${
-                    p1Won ? "bg-primary/15 text-primary" : "bg-secondary text-foreground"
-                  }`}>
-                    {p1.avatar}
-                  </div>
-                  {p1Won && (
-                    <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-accent">
-                      <Star className="h-3 w-3 text-accent-foreground" />
+            {[
+              { p: me, name: meName, won: meWon, accent: "primary" as const },
+              { p: opp, name: oppName, won: quest.winnerUserId === opp.userId, accent: "quest" as const },
+            ].map(({ p, name, won, accent }) => (
+              <div
+                key={p.userId}
+                className={`flex-1 rounded-2xl border p-5 ${
+                  won ? `border-${accent}/30 bg-${accent}/5` : "border-border bg-card"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative">
+                    <div className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-base font-bold ${
+                      won ? `bg-${accent}/15 text-${accent}` : "bg-secondary text-foreground"
+                    }`}>
+                      {p.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.avatarUrl} alt={name} className="h-full w-full object-cover" />
+                      ) : (
+                        getInitial(name)
+                      )}
                     </div>
-                  )}
-                </div>
-                <p className="text-sm font-bold text-foreground">{p1.name}</p>
-              </div>
-            </div>
-
-            {/* VS */}
-            <div className="flex items-center">
-              <span className="text-xs font-bold text-muted-foreground">VS</span>
-            </div>
-
-            {/* Player 2 */}
-            <div className={`flex-1 rounded-2xl border p-5 ${
-              !p1Won ? "border-quest/30 bg-quest/5" : "border-border bg-card"
-            }`}>
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative">
-                  <div className={`flex h-14 w-14 items-center justify-center rounded-full text-base font-bold ${
-                    !p1Won ? "bg-quest/15 text-quest" : "bg-secondary text-foreground"
-                  }`}>
-                    {p2.avatar}
+                    {won && (
+                      <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-accent">
+                        <Star className="h-3 w-3 text-accent-foreground" />
+                      </div>
+                    )}
                   </div>
-                  {!p1Won && (
-                    <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-accent">
-                      <Star className="h-3 w-3 text-accent-foreground" />
-                    </div>
-                  )}
+                  <p className="text-sm font-bold text-foreground">{name}</p>
                 </div>
-                <p className="text-sm font-bold text-foreground">{p2.name}</p>
               </div>
-            </div>
+            ))}
           </div>
 
           {showStats && (
             <div className="flex flex-col gap-3 animate-float-up">
               {/* Stat rows */}
               {[
-                { label: "Tasks Done", icon: CheckCircle2, v1: `${p1.progress}/${p1.totalTasks}`, v2: `${p2.progress}/${p2.totalTasks}` },
-                { label: "Streak", icon: Flame, v1: `${p1.streak}d`, v2: `${p2.streak}d` },
-                { label: "Impact Score", icon: BarChart3, v1: String(p1.impactScore), v2: String(p2.impactScore) },
-                { label: "Rank Points", icon: Zap, v1: `+${p1.rankPoints}`, v2: `+${p2.rankPoints}` },
+                { label: "Tasks Done", icon: CheckCircle2, v1: `${me.progress}/${me.totalTasks}`, v2: `${opp.progress}/${opp.totalTasks}` },
+                { label: "Streak", icon: Flame, v1: `${me.longestStreak}d`, v2: `${opp.longestStreak}d` },
+                { label: "Impact Score", icon: BarChart3, v1: String(me.impactScore), v2: String(opp.impactScore) },
+                { label: "Rank Points", icon: Zap, v1: `+${me.rankPoints}`, v2: `+${opp.rankPoints}` },
               ].map((row) => {
                 const Icon = row.icon
                 return (
@@ -152,14 +153,19 @@ export function CollabCelebrationScreen() {
 
               {/* Winner badge */}
               <div className="flex justify-center">
-                <div className={`flex items-center gap-2 rounded-full px-5 py-2.5 ${
-                  p1Won ? "bg-primary/15" : "bg-quest/15"
-                }`}>
-                  <Trophy className={`h-4 w-4 ${p1Won ? "text-primary" : "text-quest"}`} />
-                  <span className={`text-sm font-bold ${p1Won ? "text-primary" : "text-quest"}`}>
-                    {p1Won ? p1.name : p2.name} wins with +{Math.max(p1.rankPoints, p2.rankPoints)} rank pts
-                  </span>
-                </div>
+                {quest.winnerUserId === null ? (
+                  <div className="flex items-center gap-2 rounded-full bg-secondary px-5 py-2.5">
+                    <Trophy className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-bold text-muted-foreground">Tie — both completed</span>
+                  </div>
+                ) : (
+                  <div className={`flex items-center gap-2 rounded-full px-5 py-2.5 ${meWon ? "bg-primary/15" : "bg-quest/15"}`}>
+                    <Trophy className={`h-4 w-4 ${meWon ? "text-primary" : "text-quest"}`} />
+                    <span className={`text-sm font-bold ${meWon ? "text-primary" : "text-quest"}`}>
+                      {meWon ? meName : oppName} wins with +{Math.max(me.rankPoints, opp.rankPoints)} rank pts
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}

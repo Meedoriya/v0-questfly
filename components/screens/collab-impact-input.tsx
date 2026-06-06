@@ -2,17 +2,23 @@
 
 import { useState } from "react"
 import { useApp } from "@/lib/store"
+import { recordDailyProgress } from "@/lib/api/joint-quests"
+import { mapJointQuest } from "@/lib/mappers/joint-quest-mapper"
+import { ApiError } from "@/lib/api/errors"
 import {
   ArrowLeft,
   CheckCircle2,
   BarChart3,
   Zap,
+  AlertCircle,
 } from "lucide-react"
 
 export function CollabImpactInputScreen() {
-  const { setScreen, setLastImpactValue, currentTask } = useApp()
+  const { setScreen, setLastImpactValue, currentTask, currentJointQuest, upsertJointQuest, setCurrentJointQuest } = useApp()
   const [value, setValue] = useState("")
   const [submitted, setSubmitted] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const placeholder = currentTask?.title?.toLowerCase().includes("read")
     ? "How many pages did you read?"
@@ -22,16 +28,36 @@ export function CollabImpactInputScreen() {
     ? "How many words did you write?"
     : "What did you accomplish? (e.g., a number)"
 
-  const handleSubmit = () => {
-    setLastImpactValue(value)
-    setSubmitted(true)
-    setTimeout(() => setScreen("collab-friend-status"), 1200)
+  async function submitProgress(impact: string) {
+    if (!currentJointQuest) {
+      setScreen("collab-friend-status")
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const raw = await recordDailyProgress(currentJointQuest.id, impact ? { impact_value: impact } : {})
+      const next = mapJointQuest(raw)
+      if (next) {
+        upsertJointQuest(next)
+        setCurrentJointQuest(next)
+      }
+      setLastImpactValue(impact)
+      setSubmitted(true)
+      setTimeout(() => setScreen("collab-friend-status"), 1200)
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "ALREADY_LOGGED_TODAY") {
+        setError("You've already logged today's progress.")
+      } else {
+        setError(e instanceof Error ? e.message : "Couldn't log progress")
+      }
+    } finally {
+      setBusy(false)
+    }
   }
 
-  const handleSkip = () => {
-    setLastImpactValue("")
-    setScreen("collab-friend-status")
-  }
+  const handleSubmit = () => void submitProgress(value)
+  const handleSkip = () => void submitProgress("")
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -81,17 +107,26 @@ export function CollabImpactInputScreen() {
               />
             </div>
 
+            {error && (
+              <div className="flex w-full items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex w-full flex-col gap-3">
               <button
                 onClick={handleSubmit}
-                className="w-full rounded-2xl bg-primary py-4 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+                disabled={busy}
+                className="w-full rounded-2xl bg-primary py-4 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Log Impact
+                {busy ? "Saving…" : "Log Impact"}
               </button>
               <button
                 onClick={handleSkip}
-                className="w-full py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                disabled={busy}
+                className="w-full py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               >
                 Skip for now
               </button>
