@@ -37,6 +37,7 @@ const mkQuest = (over: Partial<JointQuest>): JointQuest => ({
   totalTasks: 12,
   winnerUserId: null,
   completedAt: null,
+  myCompletedToday: false,
   players: [mkPlayer({ role: "creator" }), mkPlayer({ userId: "u2", role: "invitee" })],
   ...over,
 })

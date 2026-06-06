@@ -159,6 +159,8 @@ export interface ApiJointQuest {
   total_tasks: number
   winner_user_id: string | null
   completed_at: string | null
+  /** true если авторизованный юзер уже залогировал прогресс сегодня (UTC). Реальное значение на list и GET /{id}. */
+  my_completed_today: boolean
   /** Длина 2 для нормального состояния, 1 для email-pending invitee. */
   players: ApiJointPlayer[]
 }

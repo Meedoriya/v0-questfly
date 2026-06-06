@@ -45,6 +45,7 @@ export function mapJointQuest(raw: unknown): JointQuest | null {
     totalTasks: num(r.total_tasks, 0),
     winnerUserId: typeof r.winner_user_id === "string" ? r.winner_user_id : null,
     completedAt: typeof r.completed_at === "string" ? r.completed_at : null,
+    myCompletedToday: r.my_completed_today === true,
     players,
   }
 }

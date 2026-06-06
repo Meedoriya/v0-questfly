@@ -426,27 +426,26 @@ function SocialTab() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 rounded-xl bg-secondary/50 px-3 py-2">
-                        <div className="flex items-center gap-1">
-                          <Zap className="h-3 w-3 text-primary" />
-                          <span className="text-[10px] font-bold text-foreground">{me.rankPoints}</span>
-                          <span className="text-[10px] text-muted-foreground">pts</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Flame className="h-3 w-3 text-streak" />
-                          <span className="text-[10px] font-bold text-streak">{me.longestStreak}d</span>
-                        </div>
-                        <div className="mx-auto text-[10px] text-muted-foreground">vs</div>
-                        <div className="flex items-center gap-1">
-                          <Zap className="h-3 w-3 text-accent" />
-                          <span className="text-[10px] font-bold text-foreground">{opp.rankPoints}</span>
-                          <span className="text-[10px] text-muted-foreground">pts</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Flame className="h-3 w-3 text-streak" />
-                          <span className="text-[10px] font-bold text-streak">{opp.longestStreak}d</span>
-                        </div>
-                      </div>
+                      {jq.status === "active" && (
+                        jq.myCompletedToday ? (
+                          <div className="flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-[11px] font-semibold text-primary">Today logged</span>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setCurrentJointQuest(jq)
+                              setScreen("collab-impact-input")
+                            }}
+                            className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 transition-all hover:bg-primary/90 active:scale-[0.98]"
+                          >
+                            <Zap className="h-3.5 w-3.5 text-primary-foreground" />
+                            <span className="text-[11px] font-bold text-primary-foreground">Log Today</span>
+                          </div>
+                        )
+                      )}
                     </button>
                   )
                 })}

@@ -185,6 +185,8 @@ export interface JointQuest {
   totalTasks: number
   winnerUserId: string | null
   completedAt: string | null
+  /** Реальное значение на list и GET /{id}. true если текущий юзер залогировал прогресс сегодня (UTC). */
+  myCompletedToday: boolean
   players: JointPlayer[]
 }
 
