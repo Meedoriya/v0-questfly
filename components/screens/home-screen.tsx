@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useApp } from "@/lib/store"
-import type { ActivityDay, Characteristic, FriendActivity, AxisKey, Quest } from "@/lib/types"
-import { useActivity } from "@/hooks/use-activity"
+import type { Characteristic, FriendActivity, AxisKey, Quest } from "@/lib/types"
+import { ActivityHeatmap } from "@/components/activity-heatmap"
 import { formatFriendAction, formatTimeAgo, getInitial } from "@/lib/friend-feed"
 import { listCampaigns, getCampaign } from "@/lib/api/campaigns"
 import { asRecord, str } from "@/lib/api/json-helpers"
@@ -241,137 +241,6 @@ function TaskCard({
   )
 }
 
-/* ---------- GitHub-style heatmap ---------- */
-
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-const HEATMAP_DAYS = 365
-
-function getMonthStarts() {
-  const today = new Date()
-  const starts: { label: string; weekIdx: number }[] = []
-  let lastMonth = -1
-  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const m = d.getMonth()
-    const weekIdx = Math.floor((HEATMAP_DAYS - 1 - i) / 7)
-    if (m !== lastMonth) {
-      starts.push({ label: MONTH_LABELS[m], weekIdx })
-      lastMonth = m
-    }
-  }
-  return starts
-}
-
-/**
- * Превращает массив дней с бэка в плотный массив intensity длины 365,
- * упорядоченный от самого старого (индекс 0) к сегодня (индекс 364).
- * Пропущенные даты заполняем нулями, чтобы сетка не съезжала.
- */
-function buildHeatmapData(days: ActivityDay[]): number[] {
-  const byDate = new Map(days.map((d) => [d.date, d.intensity]))
-  const today = new Date()
-  const result: number[] = []
-  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const iso = d.toISOString().slice(0, 10)
-    result.push(byDate.get(iso) ?? 0)
-  }
-  return result
-}
-
-function GitHubHeatmap() {
-  const { days, loading } = useActivity()
-  const data = useMemo(() => buildHeatmapData(days), [days])
-  const monthStarts = useMemo(() => getMonthStarts(), [])
-  const totalWeeks = Math.ceil(HEATMAP_DAYS / 7)
-
-  // Build 7 rows x totalWeeks columns grid
-  const grid: number[][] = Array.from({ length: 7 }, () => [])
-  for (let w = 0; w < totalWeeks; w++) {
-    for (let d = 0; d < 7; d++) {
-      const idx = w * 7 + d
-      grid[d].push(idx < data.length ? data[idx] : 0)
-    }
-  }
-
-  const cellColors = [
-    "bg-[hsl(230_12%_14%)]",           // 0: empty
-    "bg-[hsl(155_70%_50%/0.2)]",       // 1: light
-    "bg-[hsl(155_70%_50%/0.4)]",       // 2: medium
-    "bg-[hsl(155_70%_50%/0.7)]",       // 3: high
-    "bg-primary",                       // 4: max
-  ]
-
-  const totalContributions = days.reduce((acc, d) => acc + (d.count > 0 ? 1 : 0), 0)
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {loading ? "Loading activity…" : `${totalContributions} contributions in the last year`}
-        </span>
-      </div>
-
-      {/* Month labels */}
-      <div className="mb-1 flex" style={{ paddingLeft: "28px" }}>
-        {monthStarts.map((m, i) => {
-          const next = monthStarts[i + 1]
-          const span = next ? next.weekIdx - m.weekIdx : totalWeeks - m.weekIdx
-          if (span < 2) return null
-          return (
-            <span
-              key={`${m.label}-${i}`}
-              className="text-[9px] text-muted-foreground"
-              style={{ width: `${(span / totalWeeks) * 100}%` }}
-            >
-              {m.label}
-            </span>
-          )
-        })}
-      </div>
-
-      {/* Grid */}
-      <div className="flex gap-0.5">
-        {/* Day labels */}
-        <div className="flex flex-col gap-0.5 pr-1.5">
-          {["", "Mon", "", "Wed", "", "Fri", ""].map((label, i) => (
-            <div key={i} className="flex h-[11px] w-6 items-center">
-              <span className="text-[9px] text-muted-foreground">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Cells */}
-        <div className="flex flex-1 gap-[2px]" style={{ overflow: "hidden" }}>
-          {Array.from({ length: totalWeeks }).map((_, w) => (
-            <div key={w} className="flex flex-col gap-[2px]">
-              {Array.from({ length: 7 }).map((_, d) => {
-                const val = grid[d]?.[w] ?? 0
-                return (
-                  <div
-                    key={d}
-                    className={`h-[11px] w-[11px] rounded-[2px] ${cellColors[Math.min(val, 4)]}`}
-                  />
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="mt-3 flex items-center justify-end gap-1">
-        <span className="mr-1 text-[9px] text-muted-foreground">Less</span>
-        {cellColors.map((color, i) => (
-          <div key={i} className={`h-[11px] w-[11px] rounded-[2px] ${color}`} />
-        ))}
-        <span className="ml-1 text-[9px] text-muted-foreground">More</span>
-      </div>
-    </div>
-  )
-}
 
 /* ---------- tab: progress ---------- */
 
@@ -405,7 +274,7 @@ function ProgressTab() {
       {/* GitHub-style Heatmap */}
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contributions</h2>
-        <GitHubHeatmap />
+        <ActivityHeatmap />
       </section>
 
       {/* Life Radar + Weekly Progress side-by-side on desktop */}
