@@ -1,11 +1,13 @@
 # Backend requirements — что нужно подключить по каждому компоненту
 
-> Снимок состояния фронтенда на 2026-06-01. Цель документа: для каждой фичи UI
-> зафиксировать **текущий источник данных**, **что фронт ожидает** и **что нужно
-> сделать на бэке** (новые эндпоинты + форма ответа).
+> Снимок состояния фронтенда на **2026-06-06** (после фаз 0–5 интеграции
+> profile/character и §3b Life Radar). Цель документа: для каждой фичи UI
+> зафиксировать **текущий источник данных**, **что фронт ожидает** и **что
+> нужно сделать на бэке** (новые эндпоинты + форма ответа).
 >
 > Базовый контракт: все ответы в обёртке `{ "success": true, "data": ... }`
-> (см. [`api-policy.md`](api-policy.md), [`api-inventory.md`](api-inventory.md)),
+> (см. [`openapi.yaml`](openapi.yaml), [`profile_endpoints_integration.md`](profile_endpoints_integration.md),
+> [`phase5_characteristics_integration.md`](phase5_characteristics_integration.md)),
 > ошибки — `{ "success": false, "error": { "code", "message" } }`, авторизация
 > `Bearer` access-token (авто-refresh уже реализован в `lib/api/client.ts`).
 
@@ -25,119 +27,152 @@
 |---|------|----------|--------|-----------------|----------------|
 | 1 | Кампании / квесты / задачи | home, quest-roadmap, first-task, task-waiting | ✅ | `lib/api/campaigns,quests,tasks,subtasks` | — есть |
 | 2 | Привычки (routines) | home, add-habit, create-habit-manual | ✅ | `lib/api/routines` | — есть |
-| 3 | Персонаж (XP, уровень, характеристики) | profile, characteristics, progress | 🟡 | `GET /users/me/character` | дополнить (см. §3) |
+| 3 | Персонаж: XP / level / streak / avatar / bio / week / active_days | profile (ProfileTab), edit-profile | ✅ | `GET /users/me/character` + `/auth/me` | — есть после фаз 0–4 |
+| 3b | Персонаж: характеристики (12 осей) — current/max/thisWeek/lastWeek | profile (RelativeProgressCard, RadarDiagram), characteristics-screen | ✅ | `character.characteristics[12]` | — есть после фазы 5 |
 | 4 | Онбординг-чат + генерация | ai-chat, goal-input, loading | ✅ | `lib/api/onboarding` | — есть |
 | 5 | Фидбек по квесту | feedback | ✅ | `POST /quests/:id/feedback` | — есть |
-| 6 | Друзья / лента активности | home → Social | 🔴 | `store.ts` friends | §6 |
-| 7 | Совместные квесты (Collab) | 7 экранов `collab-*` | 🔴 | `store.ts` jointQuests | §7 |
-| 8 | Streak-сводки | day-summary, mega-streak | 🔴 | `store.ts` streakSummaries | §8 |
-| 9 | Активность за неделю | progress (бар-чарт) | 🔴 | `store.ts` weekActivity | §9 |
-| 10 | Хитмап вклада (год) | progress | 🔴 | `Math.random()` | §10 |
+| 6a | Список друзей | profile (Social), collab-quest-settings | 🟡 | `GET /users/me/friends` → stub `[]` | §6a — расширить когда появятся joint quests |
+| 6b | Лента активности / cheer / challenge / add friend | home → Social | 🔴 | кнопки меняют локальный state | §6b — припарковано |
+| 7 | Совместные квесты (Collab) | 7 экранов `collab-*` | 🔴 | `store.ts` jointQuests + UI без сети | §7 |
+| 8 | Streak-сводки | day-summary, mega-streak | 🔴 | `store.ts:115` streakSummaries | §8 |
+| 9 | Активность за неделю | home (heatmap полоска) | ✅ | `character.week_activity` | — есть |
+| 10 | Хитмап вклада (год) | profile | ✅ | `GET /users/me/activity` | — есть |
 | 11 | AI-рефлексия / инсайты | ai-reflection | 🔴 | хардкод в компоненте | §11 |
 | 12 | Paywall / подписка / OAuth | paywall, auth | 🔴 | заглушки | §12 |
-| 13 | Прочие захардкоженные числа | profile | 🔴 | литералы | §13 |
+| 13 | Аватар + bio в профиле, Active Days | profile | ✅ | `character.avatar_url/bio/active_days_count` | — есть |
 
 ---
 
-## 3. Персонаж — дополнить (🟡)
+## Что закрыто после фаз 0–5 (2026-06-06)
 
-**Сейчас:** `GET /api/v1/users/me/character` отдаёт `xp / level / levelProgressPercent /
-currentLevelName / nextLevelXp`, маппер `lib/mappers/character-mapper.ts` патчит
-`UserProgress`. Но поля **`thisWeek` / `lastWeek`** у характеристик и **`megaStreak`**
-берутся из `initialState` (`lib/store.ts:92-104`) и не обновляются с сервера.
+Эти разделы убраны как полностью реализованные:
 
-**Фронт ожидает** (`lib/types.ts` → `Characteristic`, `UserProgress`):
-```ts
-characteristic: { key, name, current, max, thisWeek, lastWeek }
-userProgress:   { xp, level, megaStreak, levelProgressPercent, nextLevelXp, ... }
-```
+### Фазы 0–4 (контракт профиля / персонажа)
+- **§3 базовое:** xp/level/streak/avatar/bio/week_activity/active_days_count, dual-shape `level_progress` (внутри `/auth/me` vs рядом в `/users/me/character`), локальная формула уровня удалена.
+- **§9 week activity:** теперь `character.week_activity[7]` парсится в `weekActivity: boolean[]`.
+- **§10 хитмап:** `Math.random()` выпилен, подключён `GET /users/me/activity` через `useActivity()` хук с year-view окном. Компонент `ActivityHeatmap` переписан: исправлены баги выравнивания дней недели, UTC-month парсинг, hover-tooltip, skeleton/error states.
+- **§13:** Active Days, аватар в ProfileTab, bio под именем.
+- **Edit profile:** новый экран `edit-profile` (PATCH `/users/me/character` для name+bio, PUT `.../avatar` для multipart).
+- **Friends stub:** `GET /users/me/friends` → `[]` подключён, `DEMO_FRIENDS` выпилен из `store.ts` и `collab-quest-settings.tsx`, `FriendActivity` переписан под новый контракт (`kind` enum + `payload`).
 
-**Что сделать на бэке:**
-- В `GetCharacterResponse` добавить по каждой характеристике недельные приросты:
-  `this_week`, `last_week` (число XP/очков за текущую и прошлую неделю).
-- Добавить `mega_streak` (текущий сквозной стрик пользователя) в ответ персонажа
-  либо отдельным полем в `data`.
+### Фаза 5 (Life Radar / characteristics)
+- **§3b characteristics (12 осей):** бэк отдаёт `character.characteristics[12]` (стабильный канонический порядок, единица — completions count, cap=20). Маппер парсит snake → camel, имя оси подставляется через `axisLabel(key)` локально, неизвестные ключи отбрасываются (защита от будущих расширений). `RadarDiagram`, `RelativeProgressCard`, `characteristics-screen` — все читают `userProgress.characteristics` и теперь показывают реальные данные.
+- **Bootstrap-gap закрыт:** в `app-provider` добавлен `useEffect` на mount, который тянет `getUserCharacter()`. До этого богатые поля (avatar/bio/week_activity/active_days_count) подтягивались только после первого toggle привычки. Теперь — сразу после логина.
 
-**Замечание о консистентности:** во фронте `addXp` пересчитывает уровень локально как
-`Math.floor(xp/100)+1` (`app-provider.tsx:122-135`). После любого завершения задачи
-нужно доверять серверному `level/levelProgressPercent` (рефетч `GET .../character`),
-иначе UI расходится с бэком. Рекомендуется убрать локальную формулу уровня.
+Полные доки контрактов:
+- [`profile_endpoints_integration.md`](profile_endpoints_integration.md) — фазы 0–4.
+- [`phase5_characteristics_integration.md`](phase5_characteristics_integration.md) — фаза 5.
 
 ---
 
-## 6. Друзья / лента активности (🔴)
+## 3b. ✅ Закрыто в фазе 5
 
-**Сейчас:** массив `friends` (Alex, Maya, Sam, Jordan) захардкожен в
-`lib/store.ts:106-111`. Кнопки «Cheer» / «Challenge» меняют только локальный стейт.
-Экран: `home-screen.tsx` → `SocialTab`, `ProfileTab`.
+Полный контракт и детали имплементации — [`phase5_characteristics_integration.md`](phase5_characteristics_integration.md).
+Краткая сводка изменений на фронте — в блоке «Что закрыто» выше.
 
-**Фронт ожидает** (`lib/types.ts` → `FriendActivity`):
-```ts
-{ id, name, avatar, action, questLabel, characteristic, timeAgo }
-```
+---
 
-**Что сделать на бэке (новые эндпоинты):**
+## 6a. Список друзей — расширить контракт когда появятся joint quests (🟡)
+
+**Сейчас:** `GET /api/v1/users/me/friends` подключён и возвращает `[]` (stub).
+Маппер `lib/mappers/friend-mapper.ts` уже знает формат `FriendFeedItem`
+(см. profile_endpoints_integration.md §8).
+
+**Что подключится автоматически когда бэк начнёт отдавать данные:**
+рендер в `SocialFeedCard` (home-screen.tsx), `collab-quest-settings`
+(friend picker), avatar fallback на инициал.
+
+**Заблокировано:** см. §7 (joint quests). Источника реальных дружб не существует
+пока нет invite-флоу.
+
+---
+
+## 6b. Социальные действия — припарковано (🔴)
+
+**Сейчас:** кнопки «Cheer» и «Challenge» в `SocialFeedCard` (home-screen.tsx)
+и заглушка add-friend меняют только локальный state.
+
+**Что сделать на бэке (когда фича выйдет из паркинга):**
+
 | Метод | Путь | Назначение |
 |-------|------|------------|
-| `GET` | `/api/v1/social/friends` | список друзей пользователя |
-| `GET` | `/api/v1/social/feed` | лента активности друзей (пагинация `?cursor=&limit=`) |
-| `POST` | `/api/v1/social/friends/:userId/cheer` | реакция «подбодрить» на активность |
-| `POST` | `/api/v1/social/friends/:userId/challenge` | вызвать на joint-quest (см. §7) |
-| `POST` | `/api/v1/social/friends` | добавить друга (по коду/нику/email) |
+| `GET` | `/api/v1/users/me/activity-feed?cursor=&limit=50` | лента активности друзей |
+| `POST` | `/api/v1/users/me/friends/:userId/cheer` | реакция «подбодрить» |
+| `POST` | `/api/v1/users/me/friends/:userId/challenge` | вызвать на joint-quest (см. §7) |
+| `POST` | `/api/v1/users/me/friends` | добавить друга (по коду/нику/email) |
+| `DELETE` | `/api/v1/users/me/friends/:userId` | unfriend |
 
-**Ответ feed** (предложение):
+**Ответ feed** (фронт уже знает этот формат — мапер готов):
 ```json
-{ "success": true, "data": {
-  "items": [
-    { "id": "...", "user": { "id": "...", "name": "Alex", "avatar": "A" },
-      "action": "Completed morning run", "quest_label": "Get Fit",
-      "characteristic": "Strength", "created_at": "2026-06-01T09:12:00Z" }
-  ],
-  "next_cursor": null
-}}
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "friend_user_id",
+        "name": "Alex",
+        "avatar_url": "https://...jpg?v=...",
+        "kind": "completed_quest",
+        "payload": { "quest_id": "...", "quest_title": "Get Fit" },
+        "quest_label": "Get Fit",
+        "characteristic": "discipline",
+        "happened_at": "2026-06-05T19:51:00Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}
 ```
-> `timeAgo` фронт может считать сам из `created_at` (добавить `date-fns`/хелпер).
 
-**Решение продукта:** если соц-фича вне ближайшего скоупа — временно скрыть вкладку
-Social и `friends`-блоки, чтобы не показывать пользователю фейковые данные.
+**Решено:** «припарковать» до запуска joint quests
+(см. `phase4_friends_questions.md`). Friends-домен не имеет источника данных
+без invite-флоу.
 
 ---
 
 ## 7. Совместные квесты (Collab) (🔴)
 
-**Сейчас:** `jointQuests` целиком захардкожен (`lib/store.ts:127-160`). Все 7 экранов
-работают только на локальном стейте:
-`collab-quest-settings`, `collab-invite`, `collab-impact-input`,
-`collab-friend-status`, `collab-quest-failure`, `collab-celebration`,
-`collab-final-results`. **На бэке эндпоинтов для collab нет вообще.**
+**Сейчас:** `jointQuests` целиком захардкожен (`lib/store.ts:127+`). Все 7
+экранов работают только на локальном стейте: `collab-quest-settings`,
+`collab-invite`, `collab-impact-input`, `collab-friend-status`,
+`collab-quest-failure`, `collab-celebration`, `collab-final-results`.
+
+**На бэке эндпоинтов для collab нет вообще.** Таблиц `joint_quests`,
+`friendships`, `friend_events` нет. Roadmap не зафиксирован.
 
 **Фронт ожидает** (`lib/types.ts` → `JointQuest`, `CollabPlayer`):
 ```ts
-JointQuest:  { id, title, description, deadline, daysLeft, status, player1, player2 }
-CollabPlayer:{ id, name, avatar, progress, totalTasks, rankPoints, streak,
-               failedTasks, impactScore, roadmapPreview[] }
+JointQuest:   { id, title, description, deadline, daysLeft, status, player1, player2 }
+CollabPlayer: { id, name, avatar, progress, totalTasks, rankPoints, streak,
+                failedTasks, impactScore, roadmapPreview[] }
 ```
 
 **Что сделать на бэке (новый модуль):**
+
 | Метод | Путь | Назначение |
 |-------|------|------------|
-| `POST` | `/api/v1/joint-quests` | создать совместный квест (title, deadline, цель) |
+| `POST` | `/api/v1/joint-quests` | создать совместный квест |
 | `POST` | `/api/v1/joint-quests/:id/invite` | пригласить друга (→ `collab-invite`) |
-| `POST` | `/api/v1/joint-quests/:id/accept` | принять приглашение |
+| `POST` | `/api/v1/joint-quests/:id/accept` | принять приглашение (→ создаёт двунаправленную friendship) |
 | `GET` | `/api/v1/joint-quests` | список активных/завершённых |
 | `GET` | `/api/v1/joint-quests/:id` | детали + оба игрока (`collab-friend-status`) |
-| `POST` | `/api/v1/joint-quests/:id/impact` | внести impact-значение (`collab-impact-input`) |
-| `GET` | `/api/v1/joint-quests/:id/results` | финальные результаты (`collab-final-results`) |
+| `POST` | `/api/v1/joint-quests/:id/impact` | внести impact-значение |
+| `GET` | `/api/v1/joint-quests/:id/results` | финальные результаты |
 
-**Замечание:** `deadline` сейчас строка `"Mar 30, 2026"`, `daysLeft` — число. Лучше
-отдавать `deadline` в ISO (`2026-03-30`) и считать `daysLeft` на фронте.
+**Замечания:**
+- `deadline` — отдавать в ISO (`2026-03-30`), `daysLeft` считать на фронте.
+- Принятие invite одновременно создаёт обоих в `friend_events` и запись в
+  `friendships` (источник для §6a).
+
+**Решение нужно:** «делаем joint quests» или «прячем collab-экраны из роутера».
+До решения collab-* — мёртвый код.
 
 ---
 
 ## 8. Streak-сводки (🔴)
 
-**Сейчас:** `streakSummaries` захардкожен (`lib/store.ts:116-122`). Экраны:
-`day-summary`, `mega-streak` (reset/success).
+**Сейчас:** `streakSummaries` захардкожен (`lib/store.ts:115`). Экраны:
+`day-summary`, `mega-streak-reset`, `mega-streak-success`.
 
 **Фронт ожидает** (`lib/types.ts` → `StreakSummary`):
 ```ts
@@ -145,6 +180,7 @@ CollabPlayer:{ id, name, avatar, progress, totalTasks, rankPoints, streak,
 ```
 
 **Что сделать на бэке:**
+
 | Метод | Путь | Назначение |
 |-------|------|------------|
 | `GET` | `/api/v1/users/me/streaks/summary?date=YYYY-MM-DD` | по каждой привычке/квесту: выжил ли стрик за день и предыдущая длина |
@@ -155,53 +191,20 @@ CollabPlayer:{ id, name, avatar, progress, totalTasks, rankPoints, streak,
   { "name": "Morning meditation", "survived": true, "previous_streak": 7 }
 ]}}
 ```
-> Данные выводимы из существующих routine-completions — отдельная таблица не нужна,
-> достаточно агрегата по дате.
 
----
-
-## 9. Активность за неделю (🔴)
-
-**Сейчас:** `weekActivity: [false,false,false,true,true,false,false]`
-(`lib/store.ts:90`). Экран: `home-screen.tsx` → `ProgressTab` («This Week» бар-чарт).
-
-**Что сделать на бэке:**
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| `GET` | `/api/v1/users/me/activity/week?week_start=YYYY-MM-DD` | булев массив активности по 7 дням (Пн→Вс) |
-
-**Ответ:** `{ "success": true, "data": { "days": [false,false,false,true,true,false,false] } }`
-> Можно объединить с §10 (один activity-эндпоинт с разной грануляцией).
-
----
-
-## 10. Хитмап вклада за год (🔴)
-
-**Сейчас:** генерируется через `Math.random()` при каждом рендере
-(`home-screen.tsx:233-251`, `generateGitHubHeatmap`). Это чистая декорация, не данные.
-
-**Что сделать на бэке:**
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| `GET` | `/api/v1/users/me/activity/heatmap?from=YYYY-MM-DD&to=YYYY-MM-DD` | по каждому дню — уровень активности 0..4 (или сырое число завершений) |
-
-**Ответ:**
-```json
-{ "success": true, "data": { "days": [
-  { "date": "2025-06-02", "count": 3, "level": 2 }
-]}}
-```
-> `level` (0–4) бэк может посчитать сам по квантилям, либо фронт по `count`.
+> Данные выводимы из существующих routine-completions — отдельная таблица не
+> нужна, достаточно агрегата по дате.
 
 ---
 
 ## 11. AI-рефлексия и инсайты (🔴)
 
 **Сейчас:** 3 карточки инсайтов (`INSIGHT_CARDS`) — захардкоженные тексты
-(`ai-reflection.tsx:15-40`). Поле рефлексии (`textarea`) **никуда не отправляется** —
-только `setSubmitted(true)` (`ai-reflection.tsx:47`).
+(`ai-reflection.tsx:15`). Поле рефлексии (`textarea`) **никуда не отправляется** —
+только `setSubmitted(true)` (`ai-reflection.tsx:49`).
 
 **Что сделать на бэке:**
+
 | Метод | Путь | Назначение |
 |-------|------|------------|
 | `GET` | `/api/v1/quests/:id/insights` | AI-инсайты по завершённому квесту (3 карточки) |
@@ -213,6 +216,7 @@ CollabPlayer:{ id, name, avatar, progress, totalTasks, rankPoints, streak,
   { "kind": "consistency", "title": "Consistency Pattern", "body": "..." }
 ]}}
 ```
+
 > `kind` маппится во фронте на иконку/цвет (TrendingUp/Brain/Lightbulb).
 > Тело инсайтов генерирует та же AI-подсистема, что и онбординг.
 
@@ -220,12 +224,13 @@ CollabPlayer:{ id, name, avatar, progress, totalTasks, rankPoints, streak,
 
 ## 12. Paywall / подписка / OAuth (🔴)
 
-**Сейчас:** кнопки «Continue with Apple/Google» и «Sign in with email» просто делают
-`setScreen("home")` (`paywall-screen.tsx:69-88`) — **нет реального OAuth, биллинга,
-проверки подписки.** Текущий auth работает только через OTP/email
+**Сейчас:** кнопки «Continue with Apple/Google» и «Sign in with email» просто
+делают `setScreen("home")` (`paywall-screen.tsx:69-83`) — **нет реального OAuth,
+биллинга, проверки подписки.** Текущий auth работает только через OTP/email
 (`lib/api/auth.ts`).
 
 **Что сделать на бэке (если фича в скоупе):**
+
 | Метод | Путь | Назначение |
 |-------|------|------------|
 | `POST` | `/api/v1/auth/oauth/google` | вход/регистрация по Google id_token → `AuthResponse` |
@@ -235,32 +240,26 @@ CollabPlayer:{ id, name, avatar, progress, totalTasks, rankPoints, streak,
 | `POST` | `/api/v1/billing/webhook` | вебхук провайдера платежей |
 
 > Минимально для запуска: добавить `GET /billing/subscription`, чтобы paywall
-> показывался по реальному статусу, а не всегда. OAuth и checkout — отдельная веха.
-> Если монетизации пока нет — убрать paywall из флоу.
-
----
-
-## 13. Прочие захардкоженные значения (🔴)
-
-| Значение | Где | Чем заменить |
-|----------|-----|--------------|
-| «Active Days: **14**» | `home-screen.tsx:921` (profile) | поле из персонажа/activity (`active_days`) |
-| Иконка профиля в хедере (статичная) | `home-screen.tsx` `BottomNav`/header | по желанию — аватар пользователя |
+> показывался по реальному статусу, а не всегда. OAuth и checkout — отдельная
+> веха. Если монетизации пока нет — убрать paywall из флоу.
 
 ---
 
 ## Рекомендованный порядок работ
 
-1. **§3** — добавить `this_week/last_week/mega_streak` в персонажа и убрать локальную
-   формулу уровня. Минимум усилий, чинит видимые расхождения.
-2. **§8, §9, §10** — агрегаты активности/стриков из уже существующих
-   routine/quest-completions. Один-два эндпоинта закрывают сразу 3 экрана.
-3. **§11** — рефлексия + инсайты (переиспользует AI-подсистему онбординга).
-4. **§6, §7** — Social и Collab: самый большой модуль. Сначала продуктовое решение —
-   делаем или прячем. Если делаем — это отдельная веха с новой доменной моделью.
-5. **§12** — биллинг/OAuth: отдельная веха, нужна только при запуске монетизации.
+1. **§8 streak summary** — один эндпоинт-агрегат, закрывает 3 экрана
+   (day-summary, mega-streak-reset, mega-streak-success). Самый дешёвый
+   следующий шаг: данные выводятся из существующих routine-completions, новой
+   таблицы не нужно.
+2. **§11 рефлексия + инсайты** — AI уже работает (онбординг), две новых ручки.
+   Хорошее завершение онбординг-петли «прошёл квест → отрефлексировал».
+3. **§7 + §6b** — Joint Quests + социальные действия. Самая большая глыба:
+   сначала продуктовое решение «делаем или прячем». Если делаем — это
+   отдельная веха с новой доменной моделью (`joint_quests`, `friendships`,
+   `friend_events`). До решения collab-* — мёртвый код в `screen-router.tsx`.
+4. **§12 биллинг/OAuth** — отдельная веха, только при запуске монетизации.
 
-> Для всего нового — синхронно обновлять [`openapi.yaml`](openapi.yaml) и фикстуры в
-> [`examples/`](examples/), затем добавлять клиента в `lib/api/*` и маппер в
-> `lib/mappers/*` (паттерн уже сложился: `campaign-mapper`, `routine-mapper`,
-> `character-mapper`).
+> Для всего нового — синхронно обновлять [`openapi.yaml`](openapi.yaml) и
+> фикстуры в [`examples/`](examples/), затем добавлять клиента в `lib/api/*` и
+> маппер в `lib/mappers/*` (паттерн уже сложился: `campaign-mapper`,
+> `routine-mapper`, `character-mapper`, `activity-mapper`, `friend-mapper`).
