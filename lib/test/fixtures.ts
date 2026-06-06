@@ -1,4 +1,5 @@
 import type { Habit, UserProgress } from "@/lib/types"
+import { zeroCharacteristics } from "@/lib/axes"
 
 export function minimalUserProgress(over: Partial<UserProgress> = {}): UserProgress {
   return {
@@ -6,7 +7,7 @@ export function minimalUserProgress(over: Partial<UserProgress> = {}): UserProgr
     level: 1,
     megaStreak: 0,
     weekActivity: [false, false, false, false, false, false, false],
-    characteristics: [],
+    characteristics: zeroCharacteristics(),
     friends: [],
     ...over,
   }

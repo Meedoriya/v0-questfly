@@ -45,6 +45,19 @@ export interface LevelProgress {
 }
 
 /**
+ * Одна ось Life Radar. Бэк гарантирует массив ровно из 12 элементов в каноничном
+ * порядке `domain.AllCharacteristics()` (см. phase5_characteristics_integration.md).
+ * Единица — count of habit completions (не XP).
+ */
+export interface ApiCharacteristic {
+  key: string
+  current: number
+  max: number
+  this_week: number
+  last_week: number
+}
+
+/**
  * Полная форма персонажа с бэка (после фаз 0–4 интеграции).
  * Используется в `MeResponse` и в ответе `GET /users/me/character`.
  * Slim-вариант `CharacterDto` остаётся для `AuthResponse` (login/register/refresh).
@@ -61,6 +74,8 @@ export interface CharacterData {
   last_activity_date?: string
   week_activity: WeekActivityDay[]
   active_days_count: number
+  /** Жизненный радар (12 осей). Всегда длиной 12 в каноничном порядке. */
+  characteristics: ApiCharacteristic[]
   /** В /auth/me лежит ВНУТРИ character; в /users/me/character — рядом. */
   level_progress?: LevelProgress
   next_level_xp?: number

@@ -1,4 +1,4 @@
-import type { AxisKey } from "@/lib/types"
+import type { AxisKey, Characteristic } from "@/lib/types"
 
 /**
  * Единый словарь 12 осей жизни (Life Radar). Совпадает с `AxisKey` и enum на бэке —
@@ -32,4 +32,20 @@ export function axisLabel(key: string): string {
 /** Валидна ли строка как `AxisKey`. */
 export function isAxisKey(key: string): key is AxisKey {
   return AXIS_KEYS.has(key)
+}
+
+/**
+ * 12 нулевых характеристик в каноничном порядке. Используется как initial state
+ * до первого ответа бэка и как тестовый фиксчер — гарантирует, что у RadarDiagram
+ * всегда есть 12 точек и он не падает на пустом массиве.
+ */
+export function zeroCharacteristics(): Characteristic[] {
+  return AXES.map((a) => ({
+    key: a.key,
+    name: a.label,
+    current: 0,
+    max: 20,
+    thisWeek: 0,
+    lastWeek: 0,
+  }))
 }

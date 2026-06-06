@@ -3,6 +3,7 @@
 import { createContext, useContext } from "react"
 import type { HydratedCampaign } from "./hydrate-campaign"
 import type { Screen, Quest, Task, ChatMessage, UserProgress, Habit, StreakSummary, JointQuest } from "./types"
+import { zeroCharacteristics } from "./axes"
 
 export type { HydratedCampaign }
 
@@ -93,20 +94,7 @@ export const initialState: AppState = {
     level: 1,
     megaStreak: 0,
     weekActivity: [false, false, false, false, false, false, false],
-    characteristics: [
-      { key: "health", name: "Health", current: 14, max: 20, thisWeek: 5, lastWeek: 3 },
-      { key: "appearance", name: "Appearance", current: 8, max: 20, thisWeek: 2, lastWeek: 3 },
-      { key: "environment", name: "Environment", current: 11, max: 20, thisWeek: 4, lastWeek: 2 },
-      { key: "finance", name: "Finance", current: 6, max: 20, thisWeek: 1, lastWeek: 2 },
-      { key: "career", name: "Career", current: 13, max: 20, thisWeek: 6, lastWeek: 4 },
-      { key: "growth", name: "Growth", current: 16, max: 20, thisWeek: 7, lastWeek: 5 },
-      { key: "love", name: "Love", current: 9, max: 20, thisWeek: 3, lastWeek: 3 },
-      { key: "family", name: "Family", current: 12, max: 20, thisWeek: 4, lastWeek: 4 },
-      { key: "friends", name: "Friends", current: 10, max: 20, thisWeek: 3, lastWeek: 5 },
-      { key: "creativity", name: "Creativity", current: 17, max: 20, thisWeek: 8, lastWeek: 4 },
-      { key: "lifestyle", name: "Lifestyle", current: 7, max: 20, thisWeek: 2, lastWeek: 1 },
-      { key: "spirituality", name: "Spirituality", current: 5, max: 20, thisWeek: 1, lastWeek: 2 },
-    ],
+    characteristics: zeroCharacteristics(),
     friends: [],
   },
   earnedXp: 0,

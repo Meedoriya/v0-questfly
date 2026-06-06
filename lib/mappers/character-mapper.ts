@@ -1,5 +1,6 @@
 import { asRecord, num, str } from "@/lib/api/json-helpers"
-import type { UserProgress } from "@/lib/types"
+import { axisLabel, isAxisKey } from "@/lib/axes"
+import type { Characteristic, UserProgress } from "@/lib/types"
 
 /**
  * Накладывает ответ бэка с данными персонажа на локальный UserProgress.
@@ -9,7 +10,7 @@ import type { UserProgress } from "@/lib/types"
  *   лежат РЯДОМ с `character`.
  * - `GET /auth/me` — те же поля лежат ВНУТРИ `character`.
  *
- * `characteristics` и `friends` остаются как в prev — они подтягиваются отдельными ручками.
+ * `friends` остаётся как в prev — лента приходит отдельной ручкой /users/me/friends.
  */
 export function patchUserProgressFromCharacterGet(prev: UserProgress, raw: unknown): UserProgress {
   const d = asRecord(raw)
@@ -32,6 +33,7 @@ export function patchUserProgressFromCharacterGet(prev: UserProgress, raw: unkno
   const avatarUrl = parseNullableString(ch.avatar_url, prev.avatarUrl)
   const bio = parseNullableString(ch.bio, prev.bio)
   const weekActivity = parseWeekActivity(ch.week_activity, prev.weekActivity)
+  const characteristics = parseCharacteristics(ch.characteristics, prev.characteristics)
 
   return {
     ...prev,
@@ -45,6 +47,7 @@ export function patchUserProgressFromCharacterGet(prev: UserProgress, raw: unkno
     bio,
     activeDaysCount: Number.isFinite(activeDaysCount) ? activeDaysCount : prev.activeDaysCount,
     weekActivity,
+    characteristics,
   }
 }
 
@@ -61,4 +64,31 @@ function parseWeekActivity(v: unknown, fallback: boolean[]): boolean[] {
     return r?.active === true
   })
   return parsed.length === 7 ? parsed : fallback
+}
+
+/**
+ * Парсит `character.characteristics` (12 элементов в каноничном порядке).
+ * Записи с неизвестным `key` отбрасываются — на случай если бэк когда-то добавит
+ * 13-ю ось до обновления фронта (защита, чтобы радар не упал).
+ * Cap на `current` не делаем — бэк уже capped at max=20.
+ */
+function parseCharacteristics(v: unknown, fallback: Characteristic[]): Characteristic[] {
+  if (!Array.isArray(v)) return fallback
+  const parsed = v
+    .map((entry): Characteristic | null => {
+      const r = asRecord(entry)
+      if (!r) return null
+      const key = str(r.key, "")
+      if (!isAxisKey(key)) return null
+      return {
+        key,
+        name: axisLabel(key),
+        current: num(r.current, 0),
+        max: num(r.max, 20),
+        thisWeek: num(r.this_week, 0),
+        lastWeek: num(r.last_week, 0),
+      }
+    })
+    .filter((x): x is Characteristic => x !== null)
+  return parsed.length === 0 ? fallback : parsed
 }

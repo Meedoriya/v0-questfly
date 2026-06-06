@@ -126,4 +126,52 @@ describe("patchUserProgressFromCharacterGet", () => {
     const next = patchUserProgressFromCharacterGet(prev, raw)
     expect(next.weekActivity).toEqual(prev.weekActivity)
   })
+
+  it("парсит characteristics: snake → camel, name через axisLabel", () => {
+    const prev = minimalUserProgress()
+    const raw = {
+      character: {
+        total_xp: 0,
+        level: 1,
+        streak: 0,
+        characteristics: [
+          { key: "health", current: 14, max: 20, this_week: 5, last_week: 3 },
+          { key: "growth", current: 16, max: 20, this_week: 7, last_week: 5 },
+        ],
+      },
+    }
+    const next = patchUserProgressFromCharacterGet(prev, raw)
+    expect(next.characteristics).toEqual([
+      { key: "health", name: "Health", current: 14, max: 20, thisWeek: 5, lastWeek: 3 },
+      { key: "growth", name: "Growth", current: 16, max: 20, thisWeek: 7, lastWeek: 5 },
+    ])
+  })
+
+  it("отбрасывает записи с неизвестным key (защита от 13-й оси)", () => {
+    const prev = minimalUserProgress()
+    const raw = {
+      character: {
+        total_xp: 0,
+        level: 1,
+        streak: 0,
+        characteristics: [
+          { key: "health", current: 1, max: 20, this_week: 0, last_week: 0 },
+          { key: "spaghetti", current: 99, max: 20, this_week: 5, last_week: 5 },
+        ],
+      },
+    }
+    const next = patchUserProgressFromCharacterGet(prev, raw)
+    expect(next.characteristics).toHaveLength(1)
+    expect(next.characteristics[0].key).toBe("health")
+  })
+
+  it("сохраняет prev.characteristics если поле отсутствует или не массив", () => {
+    const prev = minimalUserProgress()
+    const prevChars = prev.characteristics
+    expect(prevChars).toHaveLength(12)
+    const rawMissing = { character: { total_xp: 0, level: 1, streak: 0 } }
+    expect(patchUserProgressFromCharacterGet(prev, rawMissing).characteristics).toBe(prevChars)
+    const rawBad = { character: { total_xp: 0, level: 1, streak: 0, characteristics: "no" } }
+    expect(patchUserProgressFromCharacterGet(prev, rawBad).characteristics).toBe(prevChars)
+  })
 })

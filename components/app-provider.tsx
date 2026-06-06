@@ -57,6 +57,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const raw = await getUserCharacter()
+        if (cancelled) return
+        setState((s) => ({
+          ...s,
+          userProgress: patchUserProgressFromCharacterGet(s.userProgress, raw),
+        }))
+      } catch {
+        /* сеть / 401 — initial state остаётся zero-радаром */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const setScreen = useCallback((screen: Screen) => {
     setState((s) => ({ ...s, screen }))
   }, [])
