@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import { useApp } from "@/lib/store"
+import { useAuth } from "@/components/auth-provider"
 import { recordDailyProgress } from "@/lib/api/joint-quests"
 import { mapJointQuest } from "@/lib/mappers/joint-quest-mapper"
+import { findPlayerByUserId } from "@/lib/joint-quest-utils"
 import { ApiError } from "@/lib/api/errors"
 import {
   ArrowLeft,
@@ -11,14 +13,21 @@ import {
   BarChart3,
   Zap,
   AlertCircle,
+  MapPin,
 } from "lucide-react"
 
 export function CollabImpactInputScreen() {
   const { setScreen, setLastImpactValue, currentTask, currentJointQuest, upsertJointQuest, setCurrentJointQuest } = useApp()
+  const { user } = useAuth()
+  const meId = user?.userId ?? ""
   const [value, setValue] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const me = currentJointQuest ? findPlayerByUserId(currentJointQuest, meId) ?? currentJointQuest.players[0] : null
+  const currentStep = me ? me.roadmapPreview[me.progress] ?? null : null
+  const stepNumber = me ? me.progress + 1 : null
 
   const placeholder = currentTask?.title?.toLowerCase().includes("read")
     ? "How many pages did you read?"
@@ -85,8 +94,21 @@ export function CollabImpactInputScreen() {
               </p>
             </div>
 
-            {/* Task reference */}
-            {currentTask && (
+            {/* Today's roadmap step */}
+            {currentStep && (
+              <div className="w-full rounded-xl border border-primary/30 bg-primary/8 px-4 py-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    Step {stepNumber} of {me?.totalTasks}
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-foreground">{currentStep}</p>
+              </div>
+            )}
+
+            {/* Task reference (solo quest fallback) */}
+            {!currentStep && currentTask && (
               <div className="w-full rounded-xl border border-border bg-card px-4 py-3">
                 <p className="text-xs text-muted-foreground">Task completed</p>
                 <p className="mt-0.5 text-sm font-semibold text-foreground">{currentTask.title}</p>
