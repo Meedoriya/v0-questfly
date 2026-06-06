@@ -16,6 +16,7 @@ import {
   Clock,
   Flame,
   Heart,
+  Map,
   Zap,
 } from "lucide-react"
 
@@ -252,6 +253,15 @@ export function CollabFriendStatusScreen() {
             ))}
           </div>
         </div>
+
+        {/* View Roadmap */}
+        <button
+          onClick={() => setScreen("collab-roadmap")}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary/60"
+        >
+          <Map className="h-4 w-4 text-muted-foreground" />
+          View Roadmap
+        </button>
 
         {/* Rank points (live, до финализации = 0) */}
         <div className="flex gap-3">

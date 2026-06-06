@@ -31,6 +31,7 @@ export type Screen =
   | "collab-quest-failure"
   | "collab-celebration"
   | "collab-final-results"
+  | "collab-roadmap"
   | "edit-profile"
 
 export interface Task {
