@@ -366,7 +366,12 @@ function SocialTab() {
                       key={jq.id}
                       onClick={() => {
                         setCurrentJointQuest(jq)
-                        setScreen("collab-friend-status")
+                        const myRole = findPlayerByUserId(jq, meId)?.role
+                        setScreen(
+                          jq.status === "pending_accept" && myRole === "invitee"
+                            ? "collab-invite"
+                            : "collab-friend-status"
+                        )
                       }}
                       className="group w-full rounded-2xl border border-accent/20 bg-card p-5 text-left transition-all hover:bg-accent/5 active:scale-[0.98]"
                     >
