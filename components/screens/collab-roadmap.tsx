@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   ChevronRight,
+  Clock,
   Lock,
   Route,
 } from "lucide-react"
@@ -109,7 +110,7 @@ export function CollabRoadmapScreen() {
       </div>
 
       {/* Steps */}
-      <main className="relative flex-1 overflow-y-auto px-6 pb-40">
+      <main className="relative flex-1 overflow-y-auto px-6 pb-56">
         <div className="relative flex flex-col gap-2">
           {/* Vertical center line */}
           <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border" />
@@ -141,7 +142,7 @@ export function CollabRoadmapScreen() {
 
       {/* Bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 px-6 pb-8 pt-4 backdrop-blur-lg">
-        <div className="mx-auto max-w-md">
+        <div className="mx-auto flex max-w-md flex-col gap-3">
           {canLog && !me.completedToday ? (
             <button
               onClick={() => setScreen("collab-impact-input")}
@@ -151,11 +152,31 @@ export function CollabRoadmapScreen() {
               Log Today&apos;s Progress
             </button>
           ) : (
-            <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-secondary/50 py-4 text-sm font-bold text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              {me.completedToday ? "Today logged" : "Quest ended"}
+            <div className={`flex w-full items-center justify-center gap-2 rounded-2xl border py-4 text-sm font-bold ${
+              me.completedToday
+                ? "border-primary/20 bg-primary/8 text-primary"
+                : quest.status === "pending_accept"
+                  ? "border-amber-500/20 bg-amber-500/8 text-amber-400"
+                  : "border-border bg-secondary/50 text-muted-foreground"
+            }`}>
+              {me.completedToday
+                ? <CheckCircle2 className="h-4 w-4" />
+                : quest.status === "pending_accept"
+                  ? <Clock className="h-4 w-4" />
+                  : <Lock className="h-4 w-4" />}
+              {me.completedToday
+                ? "Today logged"
+                : quest.status === "pending_accept"
+                  ? "Waiting for partner to accept"
+                  : "Quest ended"}
             </div>
           )}
+          <button
+            onClick={() => setScreen("home")}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary/60"
+          >
+            Back to Home
+          </button>
         </div>
       </div>
     </div>

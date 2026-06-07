@@ -85,6 +85,93 @@ export function CollabFriendStatusScreen() {
     )
   }
 
+  if (quest.status === "pending_accept") {
+    const meName = me.name || "You"
+    const friendNameEarly = friend.name || "Friend"
+    return (
+      <div className="flex min-h-dvh flex-col bg-background">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-60"
+          style={{ background: "radial-gradient(60% 100% at 50% 0%, hsl(var(--accent) / 0.10), transparent 70%)" }}
+        />
+        <header className="relative flex items-center gap-3 px-6 pb-4 pt-12">
+          <button onClick={() => setScreen("home")} className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary" aria-label="Back">
+            <ArrowLeft className="h-5 w-5 text-foreground" />
+          </button>
+          <div>
+            <h1 className="font-serif text-xl font-bold text-foreground">Joint Quest</h1>
+            {quest.title && <p className="text-[11px] text-muted-foreground">{quest.title}</p>}
+          </div>
+        </header>
+
+        <div className="relative flex flex-1 flex-col gap-5 px-6 pb-8">
+          {/* Pending invite banner */}
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15">
+              <Clock className="h-4.5 w-4.5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Invite sent</p>
+              <p className="text-xs text-muted-foreground">
+                Waiting for <span className="font-medium text-foreground">{friendNameEarly}</span> to accept
+              </p>
+            </div>
+          </div>
+
+          {/* Players */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { player: me, name: meName, label: "You", color: "bg-primary/15 text-primary", badge: "Ready" },
+              { player: friend, name: friendNameEarly, label: "Partner", color: "bg-secondary text-muted-foreground", badge: "Pending" },
+            ].map(({ player, name, label, color, badge }) => (
+              <div key={label} className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4">
+                <div className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-base font-bold ${color}`}>
+                  {player.avatarUrl
+                    ? <img src={player.avatarUrl} alt={name} className="h-full w-full object-cover" /> // eslint-disable-line @next/next/no-img-element
+                    : getInitial(name)}
+                </div>
+                <p className="text-xs font-semibold text-foreground">{name}</p>
+                <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                  badge === "Ready" ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground"
+                }`}>{badge}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Roadmap teaser */}
+          {me.roadmapPreview.length > 0 && (
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Your roadmap preview</p>
+              <div className="flex flex-col gap-2">
+                {me.roadmapPreview.slice(0, 3).map((step, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[9px] font-bold text-muted-foreground">
+                      {i + 1}
+                    </div>
+                    <p className="text-[11px] leading-snug text-muted-foreground">{step}</p>
+                  </div>
+                ))}
+                {me.roadmapPreview.length > 3 && (
+                  <p className="pl-7 text-[10px] text-muted-foreground/60">+{me.roadmapPreview.length - 3} more steps…</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 pb-8">
+          <button
+            onClick={() => setScreen("home")}
+            className="w-full rounded-2xl border border-border bg-card py-4 text-sm font-bold text-foreground transition-all hover:bg-secondary/60 active:scale-[0.98]"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const meName = me.name || "You"
   const friendName = friend.name || "Friend"
   const friendCompleted = friend.completedToday
@@ -253,6 +340,17 @@ export function CollabFriendStatusScreen() {
             ))}
           </div>
         </div>
+
+        {/* Log Today's Progress (only when active and not yet logged) */}
+        {quest.status === "active" && !me.completedToday && (
+          <button
+            onClick={() => setScreen("collab-impact-input")}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-4px] shadow-primary/40 transition-all hover:bg-primary/90 active:scale-[0.98]"
+          >
+            <Zap className="h-4 w-4" />
+            Log Today&apos;s Progress
+          </button>
+        )}
 
         {/* View Roadmap */}
         <button
